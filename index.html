@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TCGM - Trading Card Cash & Asset Manager</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffaf0;
+      --ink: #17212b;
+      --muted: #68717d;
+      --line: #d9d1c1;
+      --teal: #007c89;
+      --teal-dark: #005d66;
+      --red: #b53b35;
+      --green: #157347;
+      --amber: #b76d00;
+      --blue: #235ea7;
+      --shadow: 0 16px 40px rgba(28, 35, 43, 0.12);
+      --radius: 8px;
+      color-scheme: light;
+      font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(0, 124, 137, 0.08), transparent 34%),
+        radial-gradient(circle at 92% 8%, rgba(183, 109, 0, 0.12), transparent 26%),
+        var(--bg);
+      color: var(--ink);
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: #14202b;
+      color: #f8f4ea;
+      padding: 22px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 4px 6px;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      background:
+        linear-gradient(145deg, #f9dd89 0 28%, #1c8c96 28% 56%, #e15d4f 56% 100%);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4);
+      transform: rotate(-4deg);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      color: #c9d3d9;
+      font-size: 12px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav button {
+      min-height: 42px;
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: transparent;
+      color: #dfe8ec;
+      text-align: left;
+    }
+
+    .nav button.active,
+    .nav button:hover {
+      background: #223445;
+      color: #ffffff;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+      color: #c9d3d9;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .main {
+      padding: 24px;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(24px, 3vw, 36px);
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .month-input,
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      background: #fffdf8;
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .btn {
+      min-height: 40px;
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: var(--teal);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--teal-dark); }
+    .btn.secondary { background: #e8e0d2; color: var(--ink); }
+    .btn.secondary:hover { background: #ded3c1; }
+    .btn.danger { background: var(--red); }
+    .btn.small { min-height: 32px; padding: 5px 9px; }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .dashboard-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 16px;
+    }
+
+    .panel {
+      background: rgba(255, 250, 240, 0.94);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid #e2dacd;
+      border-radius: 6px;
+      padding: 12px;
+      min-height: 86px;
+      background: #fffdf8;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric strong {
+      font-size: clamp(18px, 2vw, 26px);
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .neutral { color: var(--blue); }
+
+    .progress {
+      height: 10px;
+      background: #e5ddcf;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress div {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), #42a56f);
+      width: 0;
+      transition: width 160ms ease-out;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field.wide { grid-column: span 2; }
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 76px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffdf8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e7dfd1;
+      text-align: left;
+      vertical-align: middle;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      background: #f4ecdc;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #e8e0d2;
+      color: #33404c;
+      white-space: nowrap;
+    }
+
+    .tag.rotating { background: #d6f0f1; color: #00626b; }
+    .tag.investment { background: #e3e2ff; color: #3b3e91; }
+    .tag.opened_single { background: #fde8cf; color: #945600; }
+    .tag.sold { background: #f5d9d6; color: #9b2d28; }
+    .tag.opened { background: #e9e3d8; color: #5d5143; }
+
+    .empty {
+      padding: 30px 16px;
+      color: var(--muted);
+      text-align: center;
+      background: #fffdf8;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .two-col {
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      align-items: start;
+    }
+
+    .split-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .asset-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mini-card {
+      background: #fffdf8;
+      border: 1px solid #e2dacd;
+      border-radius: 6px;
+      padding: 10px;
+      display: grid;
+      gap: 4px;
+      min-height: 76px;
+    }
+
+    .mini-card span { color: var(--muted); font-size: 12px; }
+    .mini-card strong { font-size: 18px; overflow-wrap: anywhere; }
+
+    @media (max-width: 1040px) {
+      .dashboard-grid,
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics,
+      .asset-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+        padding: 14px;
+      }
+
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .main {
+        padding: 16px;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field.wide,
+      .field.full {
+        grid-column: auto;
+      }
+
+      .metrics,
+      .asset-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand" aria-label="TCGM">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <strong>TCGM</strong>
+          <span>Cash & Asset Manager</span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="メイン">
+        <button class="active" data-section="dashboard"><span>⌂</span>Dashboard</button>
+        <button data-section="inventory"><span>▦</span>在庫</button>
+        <button data-section="sale"><span>¥</span>売却</button>
+        <button data-section="openbox"><span>⇄</span>BOX開封</button>
+        <button data-section="expense"><span>−</span>経費</button>
+        <button data-section="history"><span>☷</span>履歴</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div>データはこのブラウザ内に保存されます。</div>
+        <div class="split-actions">
+          <button class="btn secondary small" id="exportBtn" type="button">書出</button>
+          <button class="btn secondary small" id="importBtn" type="button">読込</button>
+          <button class="btn danger small" id="resetBtn" type="button">削除</button>
+        </div>
+        <input id="importFile" type="file" accept="application/json" hidden>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p class="subtitle" id="pageSubtitle">現金の増減と保有資産を分けて確認します。</p>
+        </div>
+        <div class="toolbar">
+          <input class="month-input" id="targetMonth" type="month" aria-label="対象月">
+          <button class="btn secondary" id="sampleBtn" type="button">サンプル投入</button>
+        </div>
+      </div>
+
+      <section class="section active" id="dashboard">
+        <div class="grid dashboard-grid">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Cash Flow</h2>
+              <span class="tag">月次</span>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span>今月</span><strong id="mCashFlow">¥0</strong></div>
+              <div class="metric"><span>月5万円目標</span><strong id="mMonthlyGoal">0%</strong><div class="progress"><div id="monthlyBar"></div></div></div>
+              <div class="metric"><span>3か月累計</span><strong id="mQuarterFlow">¥0</strong><div class="progress"><div id="quarterBar"></div></div></div>
+              <div class="metric"><span>入金</span><strong id="mIncome">¥0</strong></div>
+              <div class="metric"><span>仕入</span><strong id="mPurchase">¥0</strong></div>
+              <div class="metric"><span>手数料・送料等</span><strong id="mCosts">¥0</strong></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Net Assets</h2>
+              <span class="tag">評価</span>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span>総純資産</span><strong id="mNetAssets">¥0</strong></div>
+              <div class="metric"><span>前月比</span><strong id="mMoM">¥0</strong></div>
+              <div class="metric"><span>現金</span><strong id="mCash">¥0</strong></div>
+              <div class="metric"><span>取得原価合計</span><strong id="mTotalCost">¥0</strong></div>
+              <div class="metric"><span>現在評価額合計</span><strong id="mMarketValue">¥0</strong></div>
+              <div class="metric"><span>含み損益</span><strong id="mUnrealized">¥0</strong></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>在庫区分</h2>
+          </div>
+          <div class="asset-strip">
+            <div class="mini-card"><span>回転在庫</span><strong id="assetRotating">¥0</strong></div>
+            <div class="mini-card"><span>長期投資</span><strong id="assetInvestment">¥0</strong></div>
+            <div class="mini-card"><span>開封シングル</span><strong id="assetOpenedSingle">¥0</strong></div>
+            <div class="mini-card"><span>在庫点数</span><strong id="assetCount">0</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="inventory">
+        <div class="grid two-col">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>在庫一覧</h2>
+              <span class="tag" id="inventoryCount">0件</span>
+            </div>
+            <div id="inventoryTable"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>在庫追加</h2>
+            </div>
+            <form class="form-grid" id="inventoryForm">
+              <div class="field wide">
+                <label for="invName">商品名</label>
+                <input id="invName" required placeholder="例: ポケモンカード BOX / PSA10">
+              </div>
+              <div class="field">
+                <label for="invKind">種別</label>
+                <select id="invKind">
+                  <option value="box">BOX</option>
+                  <option value="single">シングル</option>
+                  <option value="other">その他</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="invPurpose">目的区分</label>
+                <select id="invPurpose">
+                  <option value="rotating">rotating</option>
+                  <option value="investment">investment</option>
+                  <option value="opened_single">opened_single</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="invDate">取得日</label>
+                <input id="invDate" type="date" required>
+              </div>
+              <div class="field">
+                <label for="invCost">取得原価</label>
+                <input id="invCost" type="number" min="0" step="1" required>
+              </div>
+              <div class="field">
+                <label for="invValue">現在評価額</label>
+                <input id="invValue" type="number" min="0" step="1" required>
+              </div>
+              <div class="field full">
+                <label for="invMemo">メモ</label>
+                <textarea id="invMemo" placeholder="任意"></textarea>
+              </div>
+              <div class="field full">
+                <button class="btn" type="submit">＋ 在庫を追加</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="sale">
+        <div class="grid two-col">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>売却登録</h2>
+            </div>
+            <form class="form-grid" id="saleForm">
+              <div class="field wide">
+                <label for="saleInventory">売却在庫</label>
+                <select id="saleInventory" required></select>
+              </div>
+              <div class="field">
+                <label for="saleDate">売却日</label>
+                <input id="saleDate" type="date" required>
+              </div>
+              <div class="field">
+                <label for="saleChannel">販路</label>
+                <select id="saleChannel">
+                  <option value="mercari">メルカリ 10%</option>
+                  <option value="snkrdunk">スニーカーダンク 8%</option>
+                  <option value="direct">直接販売 0%</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="salePrice">売却入金</label>
+                <input id="salePrice" type="number" min="0" step="1" required>
+              </div>
+              <div class="field">
+                <label for="saleFee">販売手数料</label>
+                <input id="saleFee" type="number" min="0" step="1" required>
+              </div>
+              <div class="field">
+                <label for="saleShipping">送料</label>
+                <input id="saleShipping" type="number" min="0" step="1" value="0">
+              </div>
+              <div class="field">
+                <label for="saleTransport">交通費</label>
+                <input id="saleTransport" type="number" min="0" step="1" value="0">
+              </div>
+              <div class="field full">
+                <label for="saleMemo">メモ</label>
+                <textarea id="saleMemo" placeholder="任意"></textarea>
+              </div>
+              <div class="field full">
+                <button class="btn" type="submit">¥ 売却を登録</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>売却サマリー</h2>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span>売却額</span><strong id="sGross">¥0</strong></div>
+              <div class="metric"><span>控除</span><strong id="sCosts">¥0</strong></div>
+              <div class="metric"><span>現金増加</span><strong id="sNet">¥0</strong></div>
+            </div>
+            <p class="hint" style="margin-top:12px;">手数料は販路選択と売却入金から自動計算されます。必要なら直接編集できます。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="openbox">
+        <div class="grid two-col">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>BOX開封</h2>
+            </div>
+            <form class="form-grid" id="openForm">
+              <div class="field wide">
+                <label for="openBoxInventory">開封するBOX</label>
+                <select id="openBoxInventory" required></select>
+              </div>
+              <div class="field">
+                <label for="openDate">開封日</label>
+                <input id="openDate" type="date" required>
+              </div>
+              <div class="field">
+                <label for="singleCount">シングル枚数</label>
+                <input id="singleCount" type="number" min="1" max="20" step="1" value="3">
+              </div>
+              <div class="field full">
+                <button class="btn secondary" id="buildSingles" type="button">入力欄を作成</button>
+              </div>
+              <div class="field full" id="singlesArea"></div>
+              <div class="field full">
+                <button class="btn" type="submit">⇄ シングル在庫へ変換</button>
+              </div>
+            </form>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>処理方針</h2>
+            </div>
+            <p class="hint">BOX開封は売却でも損失でもなく、在庫の資産変換として記録します。BOX在庫を非表示にし、入力したシングルを`opened_single`として追加します。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="expense">
+        <div class="grid two-col">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>経費登録</h2>
+            </div>
+            <form class="form-grid" id="expenseForm">
+              <div class="field">
+                <label for="expenseDate">日付</label>
+                <input id="expenseDate" type="date" required>
+              </div>
+              <div class="field">
+                <label for="expenseCategory">区分</label>
+                <select id="expenseCategory">
+                  <option value="shipping">送料</option>
+                  <option value="transport">交通費</option>
+                  <option value="other">その他経費</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="expenseAmount">金額</label>
+                <input id="expenseAmount" type="number" min="0" step="1" required>
+              </div>
+              <div class="field wide">
+                <label for="expenseMemo">メモ</label>
+                <input id="expenseMemo" placeholder="例: 梱包材、移動費">
+              </div>
+              <div class="field full">
+                <button class="btn" type="submit">− 経費を登録</button>
+              </div>
+            </form>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>現金設定</h2>
+            </div>
+            <form class="form-grid" id="cashForm">
+              <div class="field wide">
+                <label for="initialCash">初期現金</label>
+                <input id="initialCash" type="number" step="1" value="0">
+              </div>
+              <div class="field full">
+                <button class="btn secondary" type="submit">保存</button>
+              </div>
+            </form>
+            <p class="hint" style="margin-top:12px;">現金は「初期現金 + 売却入金 - 仕入 - 手数料 - 送料 - 交通費 - その他経費」で計算します。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="history">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>取引履歴</h2>
+            <span class="tag" id="txCount">0件</span>
+          </div>
+          <div id="transactionTable"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "tcgm:v1";
+    const feeRates = { mercari: 0.10, snkrdunk: 0.08, direct: 0 };
+    const channelLabels = { mercari: "メルカリ", snkrdunk: "スニーカーダンク", direct: "直接販売" };
+    const purposeLabels = { rotating: "回転在庫", investment: "長期投資", opened_single: "開封シングル" };
+    const typeLabels = { purchase: "仕入", sale: "売却", expense: "経費", open_box: "BOX開封" };
+
+    const state = loadState();
+    const el = (id) => document.getElementById(id);
+    const yen = (n) => new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(Number(n) || 0);
+    const pct = (n) => `${Math.round(n)}%`;
+    const today = () => new Date().toISOString().slice(0, 10);
+    const thisMonth = () => today().slice(0, 7);
+    const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const num = (id) => Number(el(id).value) || 0;
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { settings: { initialCash: 0 }, inventory: [], transactions: [] };
+      try {
+        const parsed = JSON.parse(raw);
+        return {
+          settings: { initialCash: Number(parsed.settings?.initialCash) || 0 },
+          inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [],
+          transactions: Array.isArray(parsed.transactions) ? parsed.transactions : []
+        };
+      } catch {
+        return { settings: { initialCash: 0 }, inventory: [], transactions: [] };
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    function activeInventory() {
+      return state.inventory.filter((item) => item.status === "active");
+    }
+
+    function monthRange(month) {
+      const [y, m] = month.split("-").map(Number);
+      return { start: new Date(y, m - 1, 1), end: new Date(y, m, 1) };
+    }
+
+    function inMonth(dateStr, month) {
+      return dateStr && dateStr.slice(0, 7) === month;
+    }
+
+    function addMonths(month, delta) {
+      const [y, m] = month.split("-").map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      return d.toISOString().slice(0, 7);
+    }
+
+    function cashDelta(tx) {
+      if (tx.type === "purchase") return -tx.amount;
+      if (tx.type === "sale") return tx.gross - tx.fee - tx.shipping - tx.transport;
+      if (tx.type === "expense") return -tx.amount;
+      return 0;
+    }
+
+    function cashFlowForMonth(month) {
+      const txs = state.transactions.filter((tx) => inMonth(tx.date, month));
+      const income = sum(txs.filter((tx) => tx.type === "sale"), "gross");
+      const purchase = sum(txs.filter((tx) => tx.type === "purchase"), "amount");
+      const saleCosts = txs
+        .filter((tx) => tx.type === "sale")
+        .reduce((acc, tx) => acc + tx.fee + tx.shipping + tx.transport, 0);
+      const expenses = sum(txs.filter((tx) => tx.type === "expense"), "amount");
+      return { income, purchase, costs: saleCosts + expenses, net: income - purchase - saleCosts - expenses };
+    }
+
+    function netAssetsAt(month) {
+      const { end } = monthRange(month);
+      const cash = state.settings.initialCash + state.transactions
+        .filter((tx) => new Date(tx.date) < end)
+        .reduce((acc, tx) => acc + cashDelta(tx), 0);
+      const invValue = state.inventory
+        .filter((item) => {
+          const acquired = new Date(item.acquiredAt) < end;
+          const disposedAt = item.soldAt || item.openedAt || null;
+          const heldAtEnd = !disposedAt || new Date(disposedAt) >= end;
+          return acquired && heldAtEnd;
+        })
+        .reduce((acc, item) => acc + item.currentValue, 0);
+      return cash + invValue;
+    }
+
+    function sum(rows, key) {
+      return rows.reduce((acc, row) => acc + (Number(row[key]) || 0), 0);
+    }
+
+    function setMoney(id, value) {
+      const node = el(id);
+      node.textContent = yen(value);
+      node.classList.toggle("positive", value > 0);
+      node.classList.toggle("negative", value < 0);
+    }
+
+    function setProgress(id, value, target) {
+      el(id).style.width = `${Math.max(0, Math.min(100, (value / target) * 100))}%`;
+    }
+
+    function renderDashboard() {
+      const month = el("targetMonth").value || thisMonth();
+      const flow = cashFlowForMonth(month);
+      const qMonths = [addMonths(month, -2), addMonths(month, -1), month];
+      const quarter = qMonths.reduce((acc, m) => acc + cashFlowForMonth(m).net, 0);
+      const active = activeInventory();
+      const cash = state.settings.initialCash + state.transactions.reduce((acc, tx) => acc + cashDelta(tx), 0);
+      const invByPurpose = (purpose) => active.filter((item) => item.purpose === purpose).reduce((acc, item) => acc + item.currentValue, 0);
+      const totalCost = active.reduce((acc, item) => acc + item.acquisitionCost, 0);
+      const marketValue = active.reduce((acc, item) => acc + item.currentValue, 0);
+      const netAssets = cash + marketValue;
+      const mom = netAssets - netAssetsAt(addMonths(month, -1));
+
+      setMoney("mCashFlow", flow.net);
+      el("mMonthlyGoal").textContent = pct((flow.net / 50000) * 100);
+      el("mQuarterFlow").textContent = yen(quarter);
+      setProgress("monthlyBar", flow.net, 50000);
+      setProgress("quarterBar", quarter, 150000);
+      el("mIncome").textContent = yen(flow.income);
+      el("mPurchase").textContent = yen(flow.purchase);
+      el("mCosts").textContent = yen(flow.costs);
+
+      el("mNetAssets").textContent = yen(netAssets);
+      setMoney("mMoM", mom);
+      el("mCash").textContent = yen(cash);
+      el("mTotalCost").textContent = yen(totalCost);
+      el("mMarketValue").textContent = yen(marketValue);
+      setMoney("mUnrealized", marketValue - totalCost);
+      el("assetRotating").textContent = yen(invByPurpose("rotating"));
+      el("assetInvestment").textContent = yen(invByPurpose("investment"));
+      el("assetOpenedSingle").textContent = yen(invByPurpose("opened_single"));
+      el("assetCount").textContent = active.length;
+    }
+
+    function renderInventory() {
+      const rows = [...state.inventory].sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt));
+      el("inventoryCount").textContent = `${rows.length}件`;
+      if (!rows.length) {
+        el("inventoryTable").innerHTML = `<div class="empty">在庫がありません。</div>`;
+        return;
+      }
+      el("inventoryTable").innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>商品名</th><th>区分</th><th>状態</th><th>取得日</th><th>取得原価</th><th>評価額</th><th>含み損益</th><th></th></tr></thead>
+            <tbody>
+              ${rows.map((item) => `
+                <tr>
+                  <td><strong>${escapeHtml(item.name)}</strong><br><span class="hint">${escapeHtml(item.memo || "")}</span></td>
+                  <td><span class="tag ${item.purpose}">${purposeLabels[item.purpose]}</span></td>
+                  <td><span class="tag ${item.status}">${item.status === "active" ? "保有中" : item.status === "sold" ? "売却済" : "開封済"}</span></td>
+                  <td>${item.acquiredAt}</td>
+                  <td>${yen(item.acquisitionCost)}</td>
+                  <td><input data-value-id="${item.id}" type="number" min="0" step="1" value="${item.currentValue}" aria-label="評価額"></td>
+                  <td class="${item.currentValue - item.acquisitionCost >= 0 ? "positive" : "negative"}">${yen(item.currentValue - item.acquisitionCost)}</td>
+                  <td><button class="btn secondary small" data-delete-inv="${item.id}" type="button">削除</button></td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderOptions() {
+      const active = activeInventory();
+      const boxes = active.filter((item) => item.kind === "box");
+      el("saleInventory").innerHTML = active.length
+        ? active.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} / ${yen(item.currentValue)}</option>`).join("")
+        : `<option value="">売却可能な在庫なし</option>`;
+      el("openBoxInventory").innerHTML = boxes.length
+        ? boxes.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} / 原価 ${yen(item.acquisitionCost)}</option>`).join("")
+        : `<option value="">開封可能なBOXなし</option>`;
+    }
+
+    function renderTransactions() {
+      const rows = [...state.transactions].sort((a, b) => b.date.localeCompare(a.date));
+      el("txCount").textContent = `${rows.length}件`;
+      if (!rows.length) {
+        el("transactionTable").innerHTML = `<div class="empty">取引履歴がありません。</div>`;
+        return;
+      }
+      el("transactionTable").innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>日付</th><th>種別</th><th>内容</th><th>入金</th><th>支出</th><th>現金増減</th><th></th></tr></thead>
+            <tbody>
+              ${rows.map((tx) => {
+                const income = tx.type === "sale" ? tx.gross : 0;
+                const out = tx.type === "purchase" || tx.type === "expense" ? tx.amount : (tx.fee || 0) + (tx.shipping || 0) + (tx.transport || 0);
+                return `
+                  <tr>
+                    <td>${tx.date}</td>
+                    <td><span class="tag">${typeLabels[tx.type]}</span></td>
+                    <td><strong>${escapeHtml(tx.label || "")}</strong><br><span class="hint">${escapeHtml(tx.memo || "")}</span></td>
+                    <td>${income ? yen(income) : "-"}</td>
+                    <td>${out ? yen(out) : "-"}</td>
+                    <td class="${cashDelta(tx) >= 0 ? "positive" : "negative"}">${yen(cashDelta(tx))}</td>
+                    <td><button class="btn secondary small" data-delete-tx="${tx.id}" type="button">削除</button></td>
+                  </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderSaleSummary() {
+      const gross = num("salePrice");
+      const costs = num("saleFee") + num("saleShipping") + num("saleTransport");
+      el("sGross").textContent = yen(gross);
+      el("sCosts").textContent = yen(costs);
+      setMoney("sNet", gross - costs);
+    }
+
+    function render() {
+      renderDashboard();
+      renderInventory();
+      renderOptions();
+      renderTransactions();
+      el("initialCash").value = state.settings.initialCash;
+      renderSaleSummary();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
+    }
+
+    function bindEvents() {
+      document.querySelectorAll(".nav button").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".nav button").forEach((b) => b.classList.remove("active"));
+          document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+          button.classList.add("active");
+          el(button.dataset.section).classList.add("active");
+          const titles = {
+            dashboard: ["Dashboard", "現金の増減と保有資産を分けて確認します。"],
+            inventory: ["在庫", "取得原価、現在評価額、含み損益を管理します。"],
+            sale: ["売却", "販路別の手数料を含めて売却を記録します。"],
+            openbox: ["BOX開封", "BOXからシングルへの資産変換を記録します。"],
+            expense: ["経費", "送料、交通費、その他経費と初期現金を管理します。"],
+            history: ["履歴", "現金増減に関わる取引を確認します。"]
+          };
+          el("pageTitle").textContent = titles[button.dataset.section][0];
+          el("pageSubtitle").textContent = titles[button.dataset.section][1];
+        });
+      });
+
+      el("targetMonth").addEventListener("change", renderDashboard);
+
+      el("inventoryForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const item = {
+          id: uid(),
+          name: el("invName").value.trim(),
+          kind: el("invKind").value,
+          purpose: el("invPurpose").value,
+          acquiredAt: el("invDate").value,
+          acquisitionCost: num("invCost"),
+          currentValue: num("invValue"),
+          memo: el("invMemo").value.trim(),
+          status: "active"
+        };
+        state.inventory.push(item);
+        state.transactions.push({ id: uid(), type: "purchase", date: item.acquiredAt, amount: item.acquisitionCost, label: item.name, inventoryId: item.id, memo: item.memo });
+        event.target.reset();
+        setDefaults();
+        saveState();
+      });
+
+      document.body.addEventListener("change", (event) => {
+        const id = event.target.dataset.valueId;
+        if (!id) return;
+        const item = state.inventory.find((row) => row.id === id);
+        if (item) {
+          item.currentValue = Number(event.target.value) || 0;
+          saveState();
+        }
+      });
+
+      document.body.addEventListener("click", (event) => {
+        const invId = event.target.dataset.deleteInv;
+        const txId = event.target.dataset.deleteTx;
+        if (invId && confirm("この在庫を削除しますか？関連する仕入取引も削除されます。")) {
+          state.inventory = state.inventory.filter((item) => item.id !== invId);
+          state.transactions = state.transactions.filter((tx) => tx.inventoryId !== invId && tx.sourceBoxId !== invId);
+          saveState();
+        }
+        if (txId && confirm("この取引を削除しますか？在庫状態は必要に応じて手動で調整してください。")) {
+          state.transactions = state.transactions.filter((tx) => tx.id !== txId);
+          saveState();
+        }
+      });
+
+      el("saleChannel").addEventListener("change", updateAutoFee);
+      el("salePrice").addEventListener("input", updateAutoFee);
+      ["saleFee", "saleShipping", "saleTransport"].forEach((id) => el(id).addEventListener("input", renderSaleSummary));
+
+      el("saleForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const item = state.inventory.find((row) => row.id === el("saleInventory").value);
+        if (!item) return alert("売却できる在庫がありません。");
+        item.status = "sold";
+        item.soldAt = el("saleDate").value;
+        state.transactions.push({
+          id: uid(),
+          type: "sale",
+          date: el("saleDate").value,
+          inventoryId: item.id,
+          label: item.name,
+          channel: el("saleChannel").value,
+          gross: num("salePrice"),
+          fee: num("saleFee"),
+          shipping: num("saleShipping"),
+          transport: num("saleTransport"),
+          memo: `${channelLabels[el("saleChannel").value]} ${el("saleMemo").value.trim()}`.trim()
+        });
+        event.target.reset();
+        setDefaults();
+        saveState();
+      });
+
+      el("buildSingles").addEventListener("click", buildSingleInputs);
+      el("singleCount").addEventListener("change", buildSingleInputs);
+
+      el("openForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const box = state.inventory.find((row) => row.id === el("openBoxInventory").value);
+        if (!box) return alert("開封できるBOXがありません。");
+        const inputs = [...document.querySelectorAll("[data-single-row]")];
+        const singles = inputs.map((row) => ({
+          id: uid(),
+          name: row.querySelector("[data-single-name]").value.trim(),
+          kind: "single",
+          purpose: "opened_single",
+          acquiredAt: el("openDate").value,
+          acquisitionCost: Number(row.querySelector("[data-single-cost]").value) || 0,
+          currentValue: Number(row.querySelector("[data-single-value]").value) || 0,
+          memo: `BOX開封: ${box.name}`,
+          status: "active",
+          sourceBoxId: box.id
+        })).filter((item) => item.name);
+        if (!singles.length) return alert("シングルを1件以上入力してください。");
+        box.status = "opened";
+        box.openedAt = el("openDate").value;
+        state.inventory.push(...singles);
+        state.transactions.push({ id: uid(), type: "open_box", date: el("openDate").value, label: box.name, sourceBoxId: box.id, memo: `${singles.length}件のシングルへ変換` });
+        event.target.reset();
+        setDefaults();
+        buildSingleInputs();
+        saveState();
+      });
+
+      el("expenseForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const category = el("expenseCategory").value;
+        const labels = { shipping: "送料", transport: "交通費", other: "その他経費" };
+        state.transactions.push({
+          id: uid(),
+          type: "expense",
+          date: el("expenseDate").value,
+          category,
+          amount: num("expenseAmount"),
+          label: labels[category],
+          memo: el("expenseMemo").value.trim()
+        });
+        event.target.reset();
+        setDefaults();
+        saveState();
+      });
+
+      el("cashForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        state.settings.initialCash = num("initialCash");
+        saveState();
+      });
+
+      el("exportBtn").addEventListener("click", exportData);
+      el("importBtn").addEventListener("click", () => el("importFile").click());
+      el("importFile").addEventListener("change", importData);
+      el("resetBtn").addEventListener("click", () => {
+        if (!confirm("保存データをすべて削除しますか？")) return;
+        state.settings = { initialCash: 0 };
+        state.inventory = [];
+        state.transactions = [];
+        saveState();
+      });
+      el("sampleBtn").addEventListener("click", addSampleData);
+    }
+
+    function updateAutoFee() {
+      el("saleFee").value = Math.round(num("salePrice") * feeRates[el("saleChannel").value]);
+      renderSaleSummary();
+    }
+
+    function buildSingleInputs() {
+      const count = Math.max(1, Math.min(20, num("singleCount") || 1));
+      el("singlesArea").innerHTML = Array.from({ length: count }, (_, i) => `
+        <div class="form-grid" data-single-row style="margin-bottom:12px;">
+          <div class="field wide">
+            <label>シングル名 ${i + 1}</label>
+            <input data-single-name placeholder="カード名">
+          </div>
+          <div class="field">
+            <label>按分原価</label>
+            <input data-single-cost type="number" min="0" step="1" value="0">
+          </div>
+          <div class="field">
+            <label>評価額</label>
+            <input data-single-value type="number" min="0" step="1" value="0">
+          </div>
+        </div>`).join("");
+    }
+
+    function setDefaults() {
+      el("targetMonth").value ||= thisMonth();
+      ["invDate", "saleDate", "openDate", "expenseDate"].forEach((id) => el(id).value ||= today());
+      el("saleFee").value ||= 0;
+      el("saleShipping").value ||= 0;
+      el("saleTransport").value ||= 0;
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tcgm-${today()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          state.settings = { initialCash: Number(data.settings?.initialCash) || 0 };
+          state.inventory = Array.isArray(data.inventory) ? data.inventory : [];
+          state.transactions = Array.isArray(data.transactions) ? data.transactions : [];
+          saveState();
+        } catch {
+          alert("JSONを読み込めませんでした。");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    }
+
+    function addSampleData() {
+      if (state.inventory.length || state.transactions.length) {
+        if (!confirm("既存データにサンプルを追加しますか？")) return;
+      }
+      const d = today();
+      const boxId = uid();
+      const singleId = uid();
+      state.settings.initialCash ||= 120000;
+      state.inventory.push(
+        { id: boxId, name: "拡張パック BOX", kind: "box", purpose: "rotating", acquiredAt: d, acquisitionCost: 12800, currentValue: 14500, memo: "短期売却候補", status: "active" },
+        { id: singleId, name: "人気カード PSA10", kind: "single", purpose: "investment", acquiredAt: d, acquisitionCost: 32000, currentValue: 38000, memo: "長期保有", status: "active" }
+      );
+      state.transactions.push(
+        { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "短期売却候補" },
+        { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有" },
+        { id: uid(), type: "expense", date: d, amount: 680, category: "shipping", label: "送料", memo: "梱包材含む" }
+      );
+      saveState();
+    }
+
+    setDefaults();
+    bindEvents();
+    buildSingleInputs();
+    render();
+  </script>
+</body>
+</html>
