@@ -595,7 +595,7 @@
         <div class="grid two-col">
           <article class="panel">
             <div class="panel-head">
-              <h2>在庫一覧</h2>
+              <h2>保有在庫一覧</h2>
               <span class="tag" id="inventoryCount">0件</span>
             </div>
             <div id="inventoryTable"></div>
@@ -949,16 +949,16 @@
     }
 
     function renderInventory() {
-      const rows = [...state.inventory].sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt));
+      const rows = activeInventory().sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt));
       el("inventoryCount").textContent = `${rows.length}件`;
       if (!rows.length) {
-        el("inventoryTable").innerHTML = `<div class="empty">在庫がありません。</div>`;
+        el("inventoryTable").innerHTML = `<div class="empty">保有中の在庫がありません。</div>`;
         return;
       }
       el("inventoryTable").innerHTML = `
         <div class="table-wrap">
           <table>
-            <thead><tr><th>商品名</th><th>カテゴリ</th><th>目的</th><th>状態</th><th>個数</th><th>取得日</th><th>取得原価</th><th>評価額</th><th>含み損益</th><th></th></tr></thead>
+            <thead><tr><th>商品名</th><th>カテゴリ</th><th>目的</th><th>個数</th><th>取得日</th><th>取得原価</th><th>評価額</th><th>含み損益</th><th></th></tr></thead>
             <tbody>
               ${rows.map((item) => {
                 const kind = normalizedKind(item);
@@ -974,7 +974,6 @@
                   </td>
                   <td><select data-edit-id="${item.id}" data-edit-field="kind" aria-label="カテゴリ">${optionsHtml(Object.entries(kindLabels), kind)}</select></td>
                   <td><select data-edit-id="${item.id}" data-edit-field="purpose" aria-label="目的">${optionsHtml(purposeChoices(kind), purpose)}</select></td>
-                  <td><span class="tag ${item.status}">${item.status === "active" ? "保有中" : item.status === "sold" ? "売却済" : "開封済"}</span></td>
                   <td><input data-edit-id="${item.id}" data-edit-field="quantity" type="number" min="1" step="1" value="${quantity}" aria-label="個数"></td>
                   <td><input data-edit-id="${item.id}" data-edit-field="acquiredAt" type="date" value="${item.acquiredAt}" aria-label="取得日"></td>
                   <td><input data-edit-id="${item.id}" data-edit-field="acquisitionCost" type="number" min="0" step="1" value="${item.acquisitionCost}" aria-label="取得原価"></td>
