@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { openInventoryItem } = require("../src/domain.js");
+const { cancelLatestTransaction, openInventoryItem } = require("../src/domain.js");
 
 function idFactory() {
   let next = 1;
@@ -113,4 +113,80 @@ test("空のシングル名は登録しない", () => {
 
   assert.equal(result.singleItems.length, 1);
   assert.equal(result.singleItems[0].name, "登録カード");
+});
+
+test("購入取消では追加された在庫と仕入履歴を削除する", () => {
+  const state = {
+    settings: { initialCash: 0 },
+    inventory: [pack()],
+    transactions: [
+      {
+        id: "tx-1",
+        type: "purchase",
+        inventoryId: "pack-1",
+        label: "テストパック",
+        undo: { action: "purchase", addedInventoryIds: ["pack-1"] }
+      }
+    ]
+  };
+
+  const result = cancelLatestTransaction(state);
+
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.state.inventory, []);
+  assert.deepEqual(result.state.transactions, []);
+});
+
+test("売却取消では売却前の在庫状態に戻す", () => {
+  const before = pack({ currentValue: 9000 });
+  const sold = { ...before, status: "sold", soldAt: "2026-08-29" };
+  const state = {
+    settings: { initialCash: 0 },
+    inventory: [sold],
+    transactions: [
+      {
+        id: "tx-1",
+        type: "sale",
+        inventoryId: "pack-1",
+        label: "テストパック",
+        gross: 9500,
+        fee: 950,
+        shipping: 200,
+        transport: 0,
+        undo: { action: "sale", beforeItems: [before] }
+      }
+    ]
+  };
+
+  const result = cancelLatestTransaction(state);
+
+  assert.equal(result.state.inventory.length, 1);
+  assert.deepEqual(result.state.inventory[0], before);
+  assert.deepEqual(result.state.transactions, []);
+});
+
+test("パック開封取消では開封分・未開封残・シングルを開封前に戻す", () => {
+  const before = pack();
+  const opening = openInventoryItem({
+    item: before,
+    openQuantity: 3,
+    singles: [{ name: "当たりカード", currentValue: 5000 }],
+    openedAt: "2026-08-28",
+    idFactory: idFactory()
+  });
+  const state = {
+    settings: { initialCash: 0 },
+    inventory: [
+      opening.openedItem,
+      opening.remainingItem,
+      ...opening.singleItems
+    ],
+    transactions: [opening.transaction]
+  };
+
+  const result = cancelLatestTransaction(state);
+
+  assert.equal(result.state.inventory.length, 1);
+  assert.deepEqual(result.state.inventory[0], before);
+  assert.deepEqual(result.state.transactions, []);
 });

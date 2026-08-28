@@ -1,4 +1,8 @@
 (function initDomain(global) {
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
   function asPositiveInteger(value, fallback = 1) {
     const normalized = Math.floor(Number(value) || fallback);
     return Math.max(1, normalized);
@@ -83,12 +87,108 @@
         amount: openedCost,
         memo: noHit
           ? `${openedQuantity}個開封: 当たりなし（評価額0円）`
-          : `${openedQuantity}個開封: ${singleItems.length}件のシングルへ変換`
+          : `${openedQuantity}個開封: ${singleItems.length}件のシングルへ変換`,
+        undo: {
+          action: "open_box",
+          beforeItems: [clone(item)],
+          addedInventoryIds: [
+            ...(remainingItem ? [remainingItem.id] : []),
+            ...singleItems.map((single) => single.id)
+          ]
+        }
       }
     };
   }
 
-  const api = { asPositiveInteger, asMoney, normalizedKind, openInventoryItem };
+  function cancelLatestTransaction(state) {
+    if (!state || !Array.isArray(state.inventory) || !Array.isArray(state.transactions)) {
+      throw new Error("state with inventory and transactions is required");
+    }
+    if (!state.transactions.length) {
+      return { changed: false, message: "取り消せる履歴がありません。" };
+    }
+
+    const transactions = clone(state.transactions);
+    const inventory = clone(state.inventory);
+    const tx = transactions.pop();
+
+    if (tx.undo?.action === "purchase") {
+      return {
+        changed: true,
+        state: {
+          ...state,
+          transactions,
+          inventory: inventory.filter((item) => !tx.undo.addedInventoryIds.includes(item.id))
+        },
+        transaction: tx
+      };
+    }
+
+    if (tx.undo?.action === "sale") {
+      const before = tx.undo.beforeItems[0];
+      const index = inventory.findIndex((item) => item.id === before.id);
+      if (index >= 0) inventory[index] = clone(before);
+      return { changed: true, state: { ...state, transactions, inventory }, transaction: tx };
+    }
+
+    if (tx.undo?.action === "open_box") {
+      const before = tx.undo.beforeItems[0];
+      const withoutAdded = inventory.filter((item) => !tx.undo.addedInventoryIds.includes(item.id));
+      const index = withoutAdded.findIndex((item) => item.id === before.id);
+      if (index >= 0) withoutAdded[index] = clone(before);
+      return { changed: true, state: { ...state, transactions, inventory: withoutAdded }, transaction: tx };
+    }
+
+    if (tx.type === "purchase" && tx.inventoryId) {
+      return {
+        changed: true,
+        state: {
+          ...state,
+          transactions,
+          inventory: inventory.filter((item) => item.id !== tx.inventoryId)
+        },
+        transaction: tx
+      };
+    }
+
+    if (tx.type === "sale" && tx.inventoryId) {
+      const item = inventory.find((row) => row.id === tx.inventoryId);
+      if (item) {
+        item.status = "active";
+        delete item.soldAt;
+      }
+      return { changed: true, state: { ...state, transactions, inventory }, transaction: tx };
+    }
+
+    if (tx.type === "open_box" && tx.sourceBoxId) {
+      const source = inventory.find((item) => item.id === tx.sourceBoxId);
+      const children = inventory.filter((item) => item.sourceBoxId === tx.sourceBoxId);
+      if (source) {
+        const remaining = children.find((item) => item.status === "active" && item.kind !== "single");
+        source.name = source.name.replace(/ 開封分$/, "");
+        source.status = "active";
+        delete source.openedAt;
+        if (remaining) {
+          source.quantity = asPositiveInteger(source.quantity) + asPositiveInteger(remaining.quantity);
+          source.acquisitionCost = asMoney(source.acquisitionCost) + asMoney(remaining.acquisitionCost);
+          source.currentValue = asMoney(source.currentValue) + asMoney(remaining.currentValue);
+        }
+      }
+      return {
+        changed: true,
+        state: {
+          ...state,
+          transactions,
+          inventory: inventory.filter((item) => item.id === tx.sourceBoxId || item.sourceBoxId !== tx.sourceBoxId)
+        },
+        transaction: tx
+      };
+    }
+
+    return { changed: true, state: { ...state, transactions, inventory }, transaction: tx };
+  }
+
+  const api = { asPositiveInteger, asMoney, normalizedKind, openInventoryItem, cancelLatestTransaction };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;

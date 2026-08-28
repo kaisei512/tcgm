@@ -766,7 +766,10 @@
         <div class="panel">
           <div class="panel-head">
             <h2>取引履歴</h2>
-            <span class="tag" id="txCount">0件</span>
+            <div class="toolbar">
+              <span class="tag" id="txCount">0件</span>
+              <button class="btn secondary small" id="undoLatestTx" type="button">直近を取消</button>
+            </div>
           </div>
           <div id="transactionTable"></div>
         </div>
@@ -797,7 +800,7 @@
     const thisMonth = () => today().slice(0, 7);
     const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const num = (id) => Number(el(id).value) || 0;
-    const { openInventoryItem } = window.TCGMDomain;
+    const { cancelLatestTransaction, openInventoryItem } = window.TCGMDomain;
 
     function loadState() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -1087,7 +1090,16 @@
           status: "active"
         };
         state.inventory.push(item);
-        state.transactions.push({ id: uid(), type: "purchase", date: item.acquiredAt, amount: item.acquisitionCost, label: item.name, inventoryId: item.id, memo: item.memo });
+        state.transactions.push({
+          id: uid(),
+          type: "purchase",
+          date: item.acquiredAt,
+          amount: item.acquisitionCost,
+          label: item.name,
+          inventoryId: item.id,
+          memo: item.memo,
+          undo: { action: "purchase", addedInventoryIds: [item.id] }
+        });
         event.target.reset();
         setDefaults();
         updatePurposeOptions();
@@ -1143,6 +1155,7 @@
         event.preventDefault();
         const item = state.inventory.find((row) => row.id === el("saleInventory").value);
         if (!item) return alert("売却できる在庫がありません。");
+        const itemBeforeSale = JSON.parse(JSON.stringify(item));
         item.status = "sold";
         item.soldAt = el("saleDate").value;
         state.transactions.push({
@@ -1156,7 +1169,8 @@
           fee: num("saleFee"),
           shipping: num("saleShipping"),
           transport: num("saleTransport"),
-          memo: `${channelLabels[el("saleChannel").value]} ${el("saleMemo").value.trim()}`.trim()
+          memo: `${channelLabels[el("saleChannel").value]} ${el("saleMemo").value.trim()}`.trim(),
+          undo: { action: "sale", beforeItems: [itemBeforeSale] }
         });
         event.target.reset();
         setDefaults();
@@ -1221,6 +1235,17 @@
         state.settings = { initialCash: 0 };
         state.inventory = [];
         state.transactions = [];
+        saveState();
+      });
+      el("undoLatestTx").addEventListener("click", () => {
+        const latest = state.transactions[state.transactions.length - 1];
+        if (!latest) return alert("取り消せる履歴がありません。");
+        if (!confirm(`直近の「${latest.label || typeLabels[latest.type] || "取引"}」を取り消しますか？`)) return;
+        const result = cancelLatestTransaction(state);
+        if (!result.changed) return alert(result.message);
+        state.inventory = result.state.inventory;
+        state.transactions = result.state.transactions;
+        state.settings = result.state.settings;
         saveState();
       });
       el("sampleBtn").addEventListener("click", addSampleData);
@@ -1324,8 +1349,8 @@
         { id: singleId, name: "人気カード PSA10", kind: "single", purpose: "hold", quantity: 1, acquiredAt: d, acquisitionCost: 32000, currentValue: 38000, memo: "長期保有", status: "active" }
       );
       state.transactions.push(
-        { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "開封予定" },
-        { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有" }
+        { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "開封予定", undo: { action: "purchase", addedInventoryIds: [boxId] } },
+        { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有", undo: { action: "purchase", addedInventoryIds: [singleId] } }
       );
       saveState();
     }
