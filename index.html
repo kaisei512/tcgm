@@ -936,6 +936,12 @@
       tx.memo = item.memo;
     }
 
+    function selectedOpeningUnitCost() {
+      const item = state.inventory.find((row) => row.id === el("openBoxInventory").value);
+      const quantity = Math.max(1, Math.floor(Number(item?.quantity) || 1));
+      return Math.round((Number(item?.acquisitionCost) || 0) / quantity);
+    }
+
     function setMoney(id, value) {
       const node = el(id);
       node.textContent = yen(value);
@@ -1199,7 +1205,14 @@
       });
 
       el("buildSingles").addEventListener("click", buildSingleInputs);
-      el("openBoxInventory").addEventListener("change", updateOpenQuantityLimit);
+      el("openBoxInventory").addEventListener("change", () => {
+        updateOpenQuantityLimit();
+        buildSingleInputs();
+      });
+      el("openQuantity").addEventListener("change", () => {
+        updateOpenQuantityLimit();
+        buildSingleInputs();
+      });
       el("singleCount").addEventListener("change", buildSingleInputs);
       el("invKind").addEventListener("change", updatePurposeOptions);
       el("openNoHit").addEventListener("change", buildSingleInputs);
@@ -1213,6 +1226,7 @@
         const originalCost = Number(box.acquisitionCost) || 0;
         const originalValue = Number(box.currentValue) || 0;
         const openQuantity = Math.max(1, Math.min(quantity, Math.floor(num("openQuantity") || 1)));
+        const unitCost = Math.round(originalCost / quantity);
         const openedCost = Math.round((originalCost / quantity) * openQuantity);
         const openedValue = Math.round((originalValue / quantity) * openQuantity);
         const inputs = [...document.querySelectorAll("[data-single-row]")];
@@ -1224,7 +1238,7 @@
           purpose: "opened_single",
           quantity: 1,
           acquiredAt: el("openDate").value,
-          acquisitionCost: Number(row.querySelector("[data-single-cost]").value) || 0,
+          acquisitionCost: unitCost,
           currentValue: Number(row.querySelector("[data-single-value]").value) || 0,
           memo: `パック開封: ${originalName}`,
           status: "active",
@@ -1323,6 +1337,7 @@
         return;
       }
       const count = Math.max(1, Math.min(20, num("singleCount") || 1));
+      const unitCost = selectedOpeningUnitCost();
       el("singleCount").value = count;
       el("singlesArea").innerHTML = Array.from({ length: count }, (_, i) => `
         <div class="form-grid" data-single-row style="margin-bottom:12px;">
@@ -1331,8 +1346,8 @@
             <input data-single-name placeholder="カード名">
           </div>
           <div class="field">
-            <label>割当原価</label>
-            <input data-single-cost type="number" min="0" step="1" value="0">
+            <label>1パック原価</label>
+            <input type="number" min="0" step="1" value="${unitCost}" readonly>
           </div>
           <div class="field">
             <label>評価額</label>
