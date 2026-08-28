@@ -742,7 +742,7 @@
             <div class="panel-head">
               <h2>処理方針</h2>
             </div>
-            <p class="hint">開封は売却でも損失でもなく、在庫の資産変換として記録します。開封元を非表示にし、結果がある場合はカテゴリ「シングル」として追加します。当たりなしの場合は評価額0円の開封結果として履歴に残します。</p>
+            <p class="hint">開封は売却でも損失でもなく、在庫の資産変換として記録します。一部だけ開封した場合は、開封元を開封済みにし、残りを未開封パックの売却予定在庫として追加します。</p>
           </article>
         </div>
       </section>
@@ -1160,6 +1160,7 @@
         const txId = event.target.dataset.deleteTx;
         if (invId && confirm("この在庫を削除しますか？関連する仕入取引も削除されます。")) {
           state.inventory = state.inventory.filter((item) => item.id !== invId);
+          state.inventory = state.inventory.filter((item) => item.sourceBoxId !== invId);
           state.transactions = state.transactions.filter((tx) => tx.inventoryId !== invId && tx.sourceBoxId !== invId);
           saveState();
         }
@@ -1208,9 +1209,12 @@
         const box = state.inventory.find((row) => row.id === el("openBoxInventory").value);
         if (!box) return alert("開封できる在庫がありません。");
         const quantity = Math.max(1, Math.floor(Number(box.quantity) || 1));
+        const originalName = box.name;
+        const originalCost = Number(box.acquisitionCost) || 0;
+        const originalValue = Number(box.currentValue) || 0;
         const openQuantity = Math.max(1, Math.min(quantity, Math.floor(num("openQuantity") || 1)));
-        const openedCost = Math.round((box.acquisitionCost / quantity) * openQuantity);
-        const openedValue = Math.round((box.currentValue / quantity) * openQuantity);
+        const openedCost = Math.round((originalCost / quantity) * openQuantity);
+        const openedValue = Math.round((originalValue / quantity) * openQuantity);
         const inputs = [...document.querySelectorAll("[data-single-row]")];
         const noHit = el("openNoHit").value === "none";
         const singles = noHit ? [] : inputs.map((row) => ({
@@ -1222,22 +1226,34 @@
           acquiredAt: el("openDate").value,
           acquisitionCost: Number(row.querySelector("[data-single-cost]").value) || 0,
           currentValue: Number(row.querySelector("[data-single-value]").value) || 0,
-          memo: `パック開封: ${box.name}`,
+          memo: `パック開封: ${originalName}`,
           status: "active",
           sourceBoxId: box.id
         })).filter((item) => item.name);
         if (!noHit && !singles.length) return alert("シングルを1件以上入力してください。");
 
-        if (openQuantity >= quantity) {
-          box.status = "opened";
-          box.openedAt = el("openDate").value;
-        } else {
+        box.status = "opened";
+        box.openedAt = el("openDate").value;
+        box.name = `${originalName} 開封分`;
+        box.quantity = openQuantity;
+        box.acquisitionCost = openedCost;
+        box.currentValue = noHit ? 0 : openedValue;
+
+        if (openQuantity < quantity) {
           const remainingQuantity = quantity - openQuantity;
-          box.quantity = remainingQuantity;
-          box.acquisitionCost = Math.max(0, box.acquisitionCost - openedCost);
-          box.currentValue = Math.max(0, box.currentValue - openedValue);
-          box.purpose = "sell";
-          box.memo = `${box.memo ? `${box.memo}\n` : ""}${openQuantity}個開封、残り${remainingQuantity}個は売却予定`.trim();
+          state.inventory.push({
+            id: uid(),
+            name: `${originalName} 未開封残`,
+            kind: normalizedKind(box),
+            purpose: "sell",
+            quantity: remainingQuantity,
+            acquiredAt: box.acquiredAt,
+            acquisitionCost: Math.max(0, originalCost - openedCost),
+            currentValue: Math.max(0, originalValue - openedValue),
+            memo: `${openQuantity}個開封後の未開封残。売却予定。`,
+            status: "active",
+            sourceBoxId: box.id
+          });
         }
 
         state.inventory.push(...singles);
@@ -1245,7 +1261,7 @@
           id: uid(),
           type: "open_box",
           date: el("openDate").value,
-          label: box.name,
+          label: originalName,
           sourceBoxId: box.id,
           amount: openedCost,
           memo: noHit ? `${openQuantity}個開封: 当たりなし（評価額0円）` : `${openQuantity}個開封: ${singles.length}件のシングルへ変換`
@@ -1315,7 +1331,7 @@
             <input data-single-name placeholder="カード名">
           </div>
           <div class="field">
-            <label>按分原価</label>
+            <label>割当原価</label>
             <input data-single-cost type="number" min="0" step="1" value="0">
           </div>
           <div class="field">
