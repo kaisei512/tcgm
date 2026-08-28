@@ -809,6 +809,7 @@
     </main>
   </div>
 
+  <script src="src/domain.js"></script>
   <script>
     const STORAGE_KEY = "tcgm:v1";
     const feeRates = { mercari: 0.10, snkrdunk: 0.08, direct: 0 };
@@ -831,6 +832,7 @@
     const thisMonth = () => today().slice(0, 7);
     const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const num = (id) => Number(el(id).value) || 0;
+    const { openInventoryItem } = window.TCGMDomain;
 
     function loadState() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -1215,64 +1217,26 @@
         event.preventDefault();
         const box = state.inventory.find((row) => row.id === el("openBoxInventory").value);
         if (!box) return alert("開封できる在庫がありません。");
-        const quantity = Math.max(1, Math.floor(Number(box.quantity) || 1));
-        const originalName = box.name;
-        const originalCost = Number(box.acquisitionCost) || 0;
-        const originalValue = Number(box.currentValue) || 0;
-        const openQuantity = Math.max(1, Math.min(quantity, Math.floor(num("openQuantity") || 1)));
-        const openedCost = Math.round((originalCost / quantity) * openQuantity);
-        const openedValue = Math.round((originalValue / quantity) * openQuantity);
-        const inputs = [...document.querySelectorAll("[data-single-row]")];
         const noHit = el("openNoHit").value === "none";
-        const singles = noHit ? [] : inputs.map((row) => ({
-          id: uid(),
-          name: row.querySelector("[data-single-name]").value.trim(),
-          kind: "single",
-          purpose: "opened_single",
-          quantity: 1,
-          acquiredAt: el("openDate").value,
-          acquisitionCost: 0,
-          currentValue: Number(row.querySelector("[data-single-value]").value) || 0,
-          memo: `パック開封: ${originalName}`,
-          status: "active",
-          sourceBoxId: box.id
-        })).filter((item) => item.name);
-        if (!noHit && !singles.length) return alert("シングルを1件以上入力してください。");
-
-        box.status = "opened";
-        box.openedAt = el("openDate").value;
-        box.name = `${originalName} 開封分`;
-        box.quantity = openQuantity;
-        box.acquisitionCost = openedCost;
-        box.currentValue = noHit ? 0 : openedValue;
-
-        if (openQuantity < quantity) {
-          const remainingQuantity = quantity - openQuantity;
-          state.inventory.push({
-            id: uid(),
-            name: `${originalName} 未開封残`,
-            kind: normalizedKind(box),
-            purpose: "sell",
-            quantity: remainingQuantity,
-            acquiredAt: box.acquiredAt,
-            acquisitionCost: Math.max(0, originalCost - openedCost),
-            currentValue: Math.max(0, originalValue - openedValue),
-            memo: `${openQuantity}個開封後の未開封残。売却予定。`,
-            status: "active",
-            sourceBoxId: box.id
-          });
-        }
-
-        state.inventory.push(...singles);
-        state.transactions.push({
-          id: uid(),
-          type: "open_box",
-          date: el("openDate").value,
-          label: originalName,
-          sourceBoxId: box.id,
-          amount: openedCost,
-          memo: noHit ? `${openQuantity}個開封: 当たりなし（評価額0円）` : `${openQuantity}個開封: ${singles.length}件のシングルへ変換`
+        const singles = [...document.querySelectorAll("[data-single-row]")]
+          .map((row) => ({
+            name: row.querySelector("[data-single-name]").value,
+            currentValue: row.querySelector("[data-single-value]").value
+          }));
+        const result = openInventoryItem({
+          item: box,
+          openQuantity: num("openQuantity"),
+          singles,
+          openedAt: el("openDate").value,
+          noHit,
+          idFactory: uid
         });
+        if (!noHit && !result.singleItems.length) return alert("シングルを1件以上入力してください。");
+
+        Object.assign(box, result.openedItem);
+        if (result.remainingItem) state.inventory.push(result.remainingItem);
+        state.inventory.push(...result.singleItems);
+        state.transactions.push(result.transaction);
         event.target.reset();
         setDefaults();
         updatePurposeOptions();
