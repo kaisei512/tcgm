@@ -525,7 +525,6 @@
         </div>
         <div class="toolbar">
           <input class="month-input" id="targetMonth" type="month" aria-label="対象月">
-          <button class="btn secondary" id="sampleBtn" type="button">サンプル投入</button>
         </div>
       </div>
 
@@ -1248,7 +1247,6 @@
         state.settings = result.state.settings;
         saveState();
       });
-      el("sampleBtn").addEventListener("click", addSampleData);
     }
 
     function updateAutoFee() {
@@ -1334,25 +1332,6 @@
       };
       reader.readAsText(file);
       event.target.value = "";
-    }
-
-    function addSampleData() {
-      if (state.inventory.length || state.transactions.length) {
-        if (!confirm("既存データにサンプルを追加しますか？")) return;
-      }
-      const d = today();
-      const boxId = uid();
-      const singleId = uid();
-      state.settings.initialCash ||= 120000;
-      state.inventory.push(
-        { id: boxId, name: "拡張パック BOX", kind: "box", purpose: "open", quantity: 1, acquiredAt: d, acquisitionCost: 12800, currentValue: 14500, memo: "開封予定", status: "active" },
-        { id: singleId, name: "人気カード PSA10", kind: "single", purpose: "hold", quantity: 1, acquiredAt: d, acquisitionCost: 32000, currentValue: 38000, memo: "長期保有", status: "active" }
-      );
-      state.transactions.push(
-        { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "開封予定", undo: { action: "purchase", addedInventoryIds: [boxId] } },
-        { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有", undo: { action: "purchase", addedInventoryIds: [singleId] } }
-      );
-      saveState();
     }
 
     setDefaults();
