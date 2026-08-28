@@ -349,11 +349,18 @@
       white-space: nowrap;
     }
 
+    .tag.hold,
     .tag.rotating { background: #d6f0f1; color: #00626b; }
+    .tag.sell,
     .tag.investment { background: #e3e2ff; color: #3b3e91; }
+    .tag.open { background: #e3f3d8; color: #3d6d16; }
     .tag.opened_single { background: #fde8cf; color: #945600; }
     .tag.sold { background: #f5d9d6; color: #9b2d28; }
     .tag.opened { background: #e9e3d8; color: #5d5143; }
+    .tag.box { background: #daeef7; color: #185a77; }
+    .tag.pack { background: #f5e3b7; color: #775018; }
+    .tag.single { background: #f8d9e3; color: #872f50; }
+    .tag.other { background: #e2ded5; color: #574f45; }
 
     .empty {
       padding: 30px 16px;
@@ -537,8 +544,8 @@
             <h2>在庫区分</h2>
           </div>
           <div class="asset-strip">
-            <div class="mini-card"><span>回転在庫</span><strong id="assetRotating">¥0</strong></div>
-            <div class="mini-card"><span>長期投資</span><strong id="assetInvestment">¥0</strong></div>
+            <div class="mini-card"><span>売却予定</span><strong id="assetRotating">¥0</strong></div>
+            <div class="mini-card"><span>保持予定</span><strong id="assetInvestment">¥0</strong></div>
             <div class="mini-card"><span>開封シングル</span><strong id="assetOpenedSingle">¥0</strong></div>
             <div class="mini-card"><span>在庫点数</span><strong id="assetCount">0</strong></div>
           </div>
@@ -565,31 +572,32 @@
                 <input id="invName" required placeholder="例: ポケモンカード BOX / PSA10">
               </div>
               <div class="field">
-                <label for="invKind">種別</label>
+                <label for="invKind">カテゴリ</label>
                 <select id="invKind">
                   <option value="box">BOX</option>
+                  <option value="pack">パック</option>
                   <option value="single">シングル</option>
                   <option value="other">その他</option>
                 </select>
               </div>
               <div class="field">
                 <label for="invPurpose">目的区分</label>
-                <select id="invPurpose">
-                  <option value="rotating">rotating</option>
-                  <option value="investment">investment</option>
-                  <option value="opened_single">opened_single</option>
-                </select>
+                <select id="invPurpose"></select>
+              </div>
+              <div class="field">
+                <label for="invQuantity">個数</label>
+                <input id="invQuantity" type="number" min="1" step="1" value="1" required>
               </div>
               <div class="field">
                 <label for="invDate">取得日</label>
                 <input id="invDate" type="date" required>
               </div>
               <div class="field">
-                <label for="invCost">取得原価</label>
+                <label for="invCost">取得原価（合計）</label>
                 <input id="invCost" type="number" min="0" step="1" required>
               </div>
               <div class="field">
-                <label for="invValue">現在評価額</label>
+                <label for="invValue">現在評価額（合計）</label>
                 <input id="invValue" type="number" min="0" step="1" required>
               </div>
               <div class="field full">
@@ -675,7 +683,7 @@
             </div>
             <form class="form-grid" id="openForm">
               <div class="field wide">
-                <label for="openBoxInventory">開封するBOX</label>
+                <label for="openBoxInventory">開封する在庫</label>
                 <select id="openBoxInventory" required></select>
               </div>
               <div class="field">
@@ -684,7 +692,14 @@
               </div>
               <div class="field">
                 <label for="singleCount">シングル枚数</label>
-                <input id="singleCount" type="number" min="1" max="20" step="1" value="3">
+                <input id="singleCount" type="number" min="0" max="20" step="1" value="3">
+              </div>
+              <div class="field">
+                <label for="openNoHit">開封結果</label>
+                <select id="openNoHit">
+                  <option value="hit">シングルを登録</option>
+                  <option value="none">当たりなし（価値0）</option>
+                </select>
               </div>
               <div class="field full">
                 <button class="btn secondary" id="buildSingles" type="button">入力欄を作成</button>
@@ -699,7 +714,7 @@
             <div class="panel-head">
               <h2>処理方針</h2>
             </div>
-            <p class="hint">BOX開封は売却でも損失でもなく、在庫の資産変換として記録します。BOX在庫を非表示にし、入力したシングルを`opened_single`として追加します。</p>
+            <p class="hint">開封は売却でも損失でもなく、在庫の資産変換として記録します。開封元を非表示にし、結果がある場合はカテゴリ「シングル」として追加します。当たりなしの場合は評価額0円の開封結果として履歴に残します。</p>
           </article>
         </div>
       </section>
@@ -770,8 +785,15 @@
     const STORAGE_KEY = "tcgm:v1";
     const feeRates = { mercari: 0.10, snkrdunk: 0.08, direct: 0 };
     const channelLabels = { mercari: "メルカリ", snkrdunk: "スニーカーダンク", direct: "直接販売" };
-    const purposeLabels = { rotating: "回転在庫", investment: "長期投資", opened_single: "開封シングル" };
-    const typeLabels = { purchase: "仕入", sale: "売却", expense: "経費", open_box: "BOX開封" };
+    const kindLabels = { box: "BOX", pack: "パック", single: "シングル", other: "その他" };
+    const purposeLabels = { hold: "保持", open: "開封", sell: "売却", opened_single: "開封シングル", rotating: "売却", investment: "保持" };
+    const purposeOptions = {
+      box: [["hold", "保持"], ["open", "開封"], ["sell", "売却"]],
+      pack: [["hold", "保持"], ["open", "開封"], ["sell", "売却"]],
+      single: [["hold", "保持"], ["sell", "売却"]],
+      other: [["hold", "保持"], ["open", "開封"], ["sell", "売却"]]
+    };
+    const typeLabels = { purchase: "仕入", sale: "売却", expense: "経費", open_box: "開封" };
 
     const state = loadState();
     const el = (id) => document.getElementById(id);
@@ -898,8 +920,8 @@
       el("mTotalCost").textContent = yen(totalCost);
       el("mMarketValue").textContent = yen(marketValue);
       setMoney("mUnrealized", marketValue - totalCost);
-      el("assetRotating").textContent = yen(invByPurpose("rotating"));
-      el("assetInvestment").textContent = yen(invByPurpose("investment"));
+      el("assetRotating").textContent = yen(invByPurpose("sell") + invByPurpose("rotating"));
+      el("assetInvestment").textContent = yen(invByPurpose("hold") + invByPurpose("investment"));
       el("assetOpenedSingle").textContent = yen(invByPurpose("opened_single"));
       el("assetCount").textContent = active.length;
     }
@@ -914,13 +936,15 @@
       el("inventoryTable").innerHTML = `
         <div class="table-wrap">
           <table>
-            <thead><tr><th>商品名</th><th>区分</th><th>状態</th><th>取得日</th><th>取得原価</th><th>評価額</th><th>含み損益</th><th></th></tr></thead>
+            <thead><tr><th>商品名</th><th>カテゴリ</th><th>目的</th><th>状態</th><th>個数</th><th>取得日</th><th>取得原価</th><th>評価額</th><th>含み損益</th><th></th></tr></thead>
             <tbody>
               ${rows.map((item) => `
                 <tr>
                   <td><strong>${escapeHtml(item.name)}</strong><br><span class="hint">${escapeHtml(item.memo || "")}</span></td>
-                  <td><span class="tag ${item.purpose}">${purposeLabels[item.purpose]}</span></td>
+                  <td><span class="tag ${item.kind || "other"}">${kindLabels[item.kind] || "その他"}</span></td>
+                  <td><span class="tag ${item.purpose}">${purposeLabels[item.purpose] || item.purpose || "-"}</span></td>
                   <td><span class="tag ${item.status}">${item.status === "active" ? "保有中" : item.status === "sold" ? "売却済" : "開封済"}</span></td>
+                  <td>${Number(item.quantity) || 1}</td>
                   <td>${item.acquiredAt}</td>
                   <td>${yen(item.acquisitionCost)}</td>
                   <td><input data-value-id="${item.id}" type="number" min="0" step="1" value="${item.currentValue}" aria-label="評価額"></td>
@@ -934,13 +958,13 @@
 
     function renderOptions() {
       const active = activeInventory();
-      const boxes = active.filter((item) => item.kind === "box");
+      const openables = active.filter((item) => item.kind !== "single");
       el("saleInventory").innerHTML = active.length
-        ? active.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} / ${yen(item.currentValue)}</option>`).join("")
+        ? active.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} / ${kindLabels[item.kind] || "その他"} / ${yen(item.currentValue)}</option>`).join("")
         : `<option value="">売却可能な在庫なし</option>`;
-      el("openBoxInventory").innerHTML = boxes.length
-        ? boxes.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} / 原価 ${yen(item.acquisitionCost)}</option>`).join("")
-        : `<option value="">開封可能なBOXなし</option>`;
+      el("openBoxInventory").innerHTML = openables.length
+        ? openables.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} / ${kindLabels[item.kind] || "その他"} / 原価 ${yen(item.acquisitionCost)}</option>`).join("")
+        : `<option value="">開封可能な在庫なし</option>`;
     }
 
     function renderTransactions() {
@@ -1024,6 +1048,7 @@
           name: el("invName").value.trim(),
           kind: el("invKind").value,
           purpose: el("invPurpose").value,
+          quantity: Math.max(1, Math.floor(num("invQuantity") || 1)),
           acquiredAt: el("invDate").value,
           acquisitionCost: num("invCost"),
           currentValue: num("invValue"),
@@ -1034,6 +1059,7 @@
         state.transactions.push({ id: uid(), type: "purchase", date: item.acquiredAt, amount: item.acquisitionCost, label: item.name, inventoryId: item.id, memo: item.memo });
         event.target.reset();
         setDefaults();
+        updatePurposeOptions();
         saveState();
       });
 
@@ -1091,17 +1117,21 @@
 
       el("buildSingles").addEventListener("click", buildSingleInputs);
       el("singleCount").addEventListener("change", buildSingleInputs);
+      el("invKind").addEventListener("change", updatePurposeOptions);
+      el("openNoHit").addEventListener("change", buildSingleInputs);
 
       el("openForm").addEventListener("submit", (event) => {
         event.preventDefault();
         const box = state.inventory.find((row) => row.id === el("openBoxInventory").value);
-        if (!box) return alert("開封できるBOXがありません。");
+        if (!box) return alert("開封できる在庫がありません。");
         const inputs = [...document.querySelectorAll("[data-single-row]")];
-        const singles = inputs.map((row) => ({
+        const noHit = el("openNoHit").value === "none";
+        const singles = noHit ? [] : inputs.map((row) => ({
           id: uid(),
           name: row.querySelector("[data-single-name]").value.trim(),
           kind: "single",
           purpose: "opened_single",
+          quantity: 1,
           acquiredAt: el("openDate").value,
           acquisitionCost: Number(row.querySelector("[data-single-cost]").value) || 0,
           currentValue: Number(row.querySelector("[data-single-value]").value) || 0,
@@ -1109,13 +1139,21 @@
           status: "active",
           sourceBoxId: box.id
         })).filter((item) => item.name);
-        if (!singles.length) return alert("シングルを1件以上入力してください。");
+        if (!noHit && !singles.length) return alert("シングルを1件以上入力してください。");
         box.status = "opened";
         box.openedAt = el("openDate").value;
         state.inventory.push(...singles);
-        state.transactions.push({ id: uid(), type: "open_box", date: el("openDate").value, label: box.name, sourceBoxId: box.id, memo: `${singles.length}件のシングルへ変換` });
+        state.transactions.push({
+          id: uid(),
+          type: "open_box",
+          date: el("openDate").value,
+          label: box.name,
+          sourceBoxId: box.id,
+          memo: noHit ? "当たりなし（評価額0円）" : `${singles.length}件のシングルへ変換`
+        });
         event.target.reset();
         setDefaults();
+        updatePurposeOptions();
         buildSingleInputs();
         saveState();
       });
@@ -1163,7 +1201,14 @@
     }
 
     function buildSingleInputs() {
+      const noHit = el("openNoHit").value === "none";
+      if (noHit) {
+        el("singleCount").value = 0;
+        el("singlesArea").innerHTML = `<div class="empty">当たりなしとして、開封元の在庫を開封済みにし、価値0円の開封履歴だけを残します。</div>`;
+        return;
+      }
       const count = Math.max(1, Math.min(20, num("singleCount") || 1));
+      el("singleCount").value = count;
       el("singlesArea").innerHTML = Array.from({ length: count }, (_, i) => `
         <div class="form-grid" data-single-row style="margin-bottom:12px;">
           <div class="field wide">
@@ -1181,9 +1226,18 @@
         </div>`).join("");
     }
 
+    function updatePurposeOptions() {
+      const kind = el("invKind").value || "box";
+      const current = el("invPurpose").value;
+      const options = purposeOptions[kind] || purposeOptions.other;
+      el("invPurpose").innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+      el("invPurpose").value = options.some(([value]) => value === current) ? current : options[0][0];
+    }
+
     function setDefaults() {
       el("targetMonth").value ||= thisMonth();
       ["invDate", "saleDate", "openDate", "expenseDate"].forEach((id) => el(id).value ||= today());
+      el("invQuantity").value ||= 1;
       el("saleFee").value ||= 0;
       el("saleShipping").value ||= 0;
       el("saleTransport").value ||= 0;
@@ -1227,11 +1281,11 @@
       const singleId = uid();
       state.settings.initialCash ||= 120000;
       state.inventory.push(
-        { id: boxId, name: "拡張パック BOX", kind: "box", purpose: "rotating", acquiredAt: d, acquisitionCost: 12800, currentValue: 14500, memo: "短期売却候補", status: "active" },
-        { id: singleId, name: "人気カード PSA10", kind: "single", purpose: "investment", acquiredAt: d, acquisitionCost: 32000, currentValue: 38000, memo: "長期保有", status: "active" }
+        { id: boxId, name: "拡張パック BOX", kind: "box", purpose: "open", quantity: 1, acquiredAt: d, acquisitionCost: 12800, currentValue: 14500, memo: "開封予定", status: "active" },
+        { id: singleId, name: "人気カード PSA10", kind: "single", purpose: "hold", quantity: 1, acquiredAt: d, acquisitionCost: 32000, currentValue: 38000, memo: "長期保有", status: "active" }
       );
       state.transactions.push(
-        { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "短期売却候補" },
+        { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "開封予定" },
         { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有" },
         { id: uid(), type: "expense", date: d, amount: 680, category: "shipping", label: "送料", memo: "梱包材含む" }
       );
@@ -1239,6 +1293,7 @@
     }
 
     setDefaults();
+    updatePurposeOptions();
     bindEvents();
     buildSingleInputs();
     render();
