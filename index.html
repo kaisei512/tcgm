@@ -504,7 +504,6 @@
         <button data-section="inventory"><span>▦</span>在庫</button>
         <button data-section="sale"><span>¥</span>売却</button>
         <button data-section="openbox"><span>⇄</span>パック開封</button>
-        <button data-section="expense"><span>−</span>経費</button>
         <button data-section="history"><span>☷</span>履歴</button>
       </nav>
       <div class="sidebar-footer">
@@ -543,7 +542,7 @@
               <div class="metric"><span>3か月累計</span><strong id="mQuarterFlow">¥0</strong><div class="progress"><div id="quarterBar"></div></div></div>
               <div class="metric"><span>入金</span><strong id="mIncome">¥0</strong></div>
               <div class="metric"><span>仕入</span><strong id="mPurchase">¥0</strong></div>
-              <div class="metric"><span>手数料・送料等</span><strong id="mCosts">¥0</strong></div>
+              <div class="metric"><span>売却控除</span><strong id="mCosts">¥0</strong></div>
             </div>
           </article>
 
@@ -573,6 +572,22 @@
             <div class="mini-card"><span>開封シングル</span><strong id="assetOpenedSingle">¥0</strong></div>
             <div class="mini-card"><span>在庫点数</span><strong id="assetCount">0</strong></div>
           </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px;">
+          <div class="panel-head">
+            <h2>現金設定</h2>
+          </div>
+          <form class="form-grid" id="cashForm">
+            <div class="field wide">
+              <label for="initialCash">初期現金</label>
+              <input id="initialCash" type="number" step="1" value="0">
+            </div>
+            <div class="field full">
+              <button class="btn secondary" type="submit">保存</button>
+            </div>
+          </form>
+          <p class="hint" style="margin-top:12px;">現金は「初期現金 + 売却入金 - 仕入 - 売却時の手数料・送料・交通費」で計算します。</p>
         </div>
       </section>
 
@@ -743,56 +758,6 @@
               <h2>処理方針</h2>
             </div>
             <p class="hint">開封は売却でも損失でもなく、在庫の資産変換として記録します。開封分に取得原価を残し、追加するシングルの取得原価は0円にします。一部だけ開封した場合は、残りを未開封パックの売却予定在庫として追加します。</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section" id="expense">
-        <div class="grid two-col">
-          <article class="panel">
-            <div class="panel-head">
-              <h2>経費登録</h2>
-            </div>
-            <form class="form-grid" id="expenseForm">
-              <div class="field">
-                <label for="expenseDate">日付</label>
-                <input id="expenseDate" type="date" required>
-              </div>
-              <div class="field">
-                <label for="expenseCategory">区分</label>
-                <select id="expenseCategory">
-                  <option value="shipping">送料</option>
-                  <option value="transport">交通費</option>
-                  <option value="other">その他経費</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="expenseAmount">金額</label>
-                <input id="expenseAmount" type="number" min="0" step="1" required>
-              </div>
-              <div class="field wide">
-                <label for="expenseMemo">メモ</label>
-                <input id="expenseMemo" placeholder="例: 梱包材、移動費">
-              </div>
-              <div class="field full">
-                <button class="btn" type="submit">− 経費を登録</button>
-              </div>
-            </form>
-          </article>
-          <article class="panel">
-            <div class="panel-head">
-              <h2>現金設定</h2>
-            </div>
-            <form class="form-grid" id="cashForm">
-              <div class="field wide">
-                <label for="initialCash">初期現金</label>
-                <input id="initialCash" type="number" step="1" value="0">
-              </div>
-              <div class="field full">
-                <button class="btn secondary" type="submit">保存</button>
-              </div>
-            </form>
-            <p class="hint" style="margin-top:12px;">現金は「初期現金 + 売却入金 - 仕入 - 手数料 - 送料 - 交通費 - その他経費」で計算します。</p>
           </article>
         </div>
       </section>
@@ -1099,7 +1064,6 @@
             inventory: ["在庫", "取得原価、現在評価額、含み損益を管理します。"],
             sale: ["売却", "販路別の手数料を含めて売却を記録します。"],
             openbox: ["パック開封", "BOXやパックからシングルへの資産変換を記録します。"],
-            expense: ["経費", "送料、交通費、その他経費と初期現金を管理します。"],
             history: ["履歴", "現金増減に関わる取引を確認します。"]
           };
           el("pageTitle").textContent = titles[button.dataset.section][0];
@@ -1244,24 +1208,6 @@
         saveState();
       });
 
-      el("expenseForm").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const category = el("expenseCategory").value;
-        const labels = { shipping: "送料", transport: "交通費", other: "その他経費" };
-        state.transactions.push({
-          id: uid(),
-          type: "expense",
-          date: el("expenseDate").value,
-          category,
-          amount: num("expenseAmount"),
-          label: labels[category],
-          memo: el("expenseMemo").value.trim()
-        });
-        event.target.reset();
-        setDefaults();
-        saveState();
-      });
-
       el("cashForm").addEventListener("submit", (event) => {
         event.preventDefault();
         state.settings.initialCash = num("initialCash");
@@ -1329,7 +1275,7 @@
 
     function setDefaults() {
       el("targetMonth").value ||= thisMonth();
-      ["invDate", "saleDate", "openDate", "expenseDate"].forEach((id) => el(id).value ||= today());
+      ["invDate", "saleDate", "openDate"].forEach((id) => el(id).value ||= today());
       el("invQuantity").value ||= 1;
       el("openQuantity").value ||= 1;
       el("saleFee").value ||= 0;
@@ -1380,8 +1326,7 @@
       );
       state.transactions.push(
         { id: uid(), type: "purchase", date: d, amount: 12800, label: "拡張パック BOX", inventoryId: boxId, memo: "開封予定" },
-        { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有" },
-        { id: uid(), type: "expense", date: d, amount: 680, category: "shipping", label: "送料", memo: "梱包材含む" }
+        { id: uid(), type: "purchase", date: d, amount: 32000, label: "人気カード PSA10", inventoryId: singleId, memo: "長期保有" }
       );
       saveState();
     }
