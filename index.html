@@ -509,9 +509,8 @@
       <div class="sidebar-footer">
         <div>データはこのブラウザ内に保存されます。</div>
         <div class="split-actions">
-          <button class="btn secondary small" id="exportBtn" type="button">書出</button>
-          <button class="btn secondary small" id="importBtn" type="button">読込</button>
-          <button class="btn danger small" id="resetBtn" type="button">削除</button>
+          <button class="btn secondary small" id="exportBtn" type="button">書き出し</button>
+          <button class="btn secondary small" id="importBtn" type="button">読み込み</button>
         </div>
         <input id="importFile" type="file" accept="application/json" hidden>
       </div>
@@ -1229,13 +1228,6 @@
       el("exportBtn").addEventListener("click", exportData);
       el("importBtn").addEventListener("click", () => el("importFile").click());
       el("importFile").addEventListener("change", importData);
-      el("resetBtn").addEventListener("click", () => {
-        if (!confirm("保存データをすべて削除しますか？")) return;
-        state.settings = { initialCash: 0 };
-        state.inventory = [];
-        state.transactions = [];
-        saveState();
-      });
       el("undoLatestTx").addEventListener("click", () => {
         const latest = state.transactions[state.transactions.length - 1];
         if (!latest) return alert("取り消せる履歴がありません。");
