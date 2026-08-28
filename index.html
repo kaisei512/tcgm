@@ -742,7 +742,7 @@
             <div class="panel-head">
               <h2>処理方針</h2>
             </div>
-            <p class="hint">開封は売却でも損失でもなく、在庫の資産変換として記録します。一部だけ開封した場合は、開封元を開封済みにし、残りを未開封パックの売却予定在庫として追加します。</p>
+            <p class="hint">開封は売却でも損失でもなく、在庫の資産変換として記録します。開封分に取得原価を残し、追加するシングルの取得原価は0円にします。一部だけ開封した場合は、残りを未開封パックの売却予定在庫として追加します。</p>
           </article>
         </div>
       </section>
@@ -934,12 +934,6 @@
       if (!hasOpening) tx.amount = item.acquisitionCost;
       tx.label = item.name;
       tx.memo = item.memo;
-    }
-
-    function selectedOpeningUnitCost() {
-      const item = state.inventory.find((row) => row.id === el("openBoxInventory").value);
-      const quantity = Math.max(1, Math.floor(Number(item?.quantity) || 1));
-      return Math.round((Number(item?.acquisitionCost) || 0) / quantity);
     }
 
     function setMoney(id, value) {
@@ -1226,7 +1220,6 @@
         const originalCost = Number(box.acquisitionCost) || 0;
         const originalValue = Number(box.currentValue) || 0;
         const openQuantity = Math.max(1, Math.min(quantity, Math.floor(num("openQuantity") || 1)));
-        const unitCost = Math.round(originalCost / quantity);
         const openedCost = Math.round((originalCost / quantity) * openQuantity);
         const openedValue = Math.round((originalValue / quantity) * openQuantity);
         const inputs = [...document.querySelectorAll("[data-single-row]")];
@@ -1238,7 +1231,7 @@
           purpose: "opened_single",
           quantity: 1,
           acquiredAt: el("openDate").value,
-          acquisitionCost: unitCost,
+          acquisitionCost: 0,
           currentValue: Number(row.querySelector("[data-single-value]").value) || 0,
           memo: `パック開封: ${originalName}`,
           status: "active",
@@ -1337,7 +1330,6 @@
         return;
       }
       const count = Math.max(1, Math.min(20, num("singleCount") || 1));
-      const unitCost = selectedOpeningUnitCost();
       el("singleCount").value = count;
       el("singlesArea").innerHTML = Array.from({ length: count }, (_, i) => `
         <div class="form-grid" data-single-row style="margin-bottom:12px;">
@@ -1346,8 +1338,8 @@
             <input data-single-name placeholder="カード名">
           </div>
           <div class="field">
-            <label>1パック原価</label>
-            <input type="number" min="0" step="1" value="${unitCost}" readonly>
+            <label>取得原価</label>
+            <input type="number" min="0" step="1" value="0" readonly>
           </div>
           <div class="field">
             <label>評価額</label>
