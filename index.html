@@ -251,6 +251,20 @@
       overflow-wrap: anywhere;
     }
 
+    .metric-detail {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .metric-detail div {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
     .positive { color: var(--green); }
     .negative { color: var(--red); }
     .neutral { color: var(--blue); }
@@ -522,7 +536,7 @@
           <h1 id="pageTitle">Dashboard</h1>
           <p class="subtitle" id="pageSubtitle">現金の増減と保有資産を分けて確認します。</p>
         </div>
-        <div class="toolbar">
+        <div class="toolbar" id="dashboardControls">
           <input class="month-input" id="targetMonth" type="month" aria-label="対象月">
         </div>
       </div>
@@ -555,7 +569,15 @@
               <div class="metric"><span>現金</span><strong id="mCash">¥0</strong></div>
               <div class="metric"><span>取得原価合計</span><strong id="mTotalCost">¥0</strong></div>
               <div class="metric"><span>現在評価額合計</span><strong id="mMarketValue">¥0</strong></div>
-              <div class="metric"><span>含み損益</span><strong id="mUnrealized">¥0</strong></div>
+              <div class="metric">
+                <span>含み損益</span>
+                <strong id="mUnrealized">¥0</strong>
+                <div class="metric-detail">
+                  <div><span>売却予定</span><b id="uSell">¥0</b></div>
+                  <div><span>保持予定</span><b id="uHold">¥0</b></div>
+                  <div><span>開封シングル</span><b id="uOpenedSingle">¥0</b></div>
+                </div>
+              </div>
             </div>
           </article>
         </div>
@@ -917,10 +939,16 @@
       const active = activeInventory();
       const cash = state.settings.initialCash + state.transactions.reduce((acc, tx) => acc + cashDelta(tx), 0);
       const invByPurpose = (purpose) => active.filter((item) => item.purpose === purpose).reduce((acc, item) => acc + item.currentValue, 0);
+      const unrealizedByPurpose = (purposes) => active
+        .filter((item) => purposes.includes(item.purpose))
+        .reduce((acc, item) => acc + item.currentValue - item.acquisitionCost, 0);
       const totalCost = active.reduce((acc, item) => acc + item.acquisitionCost, 0);
       const marketValue = active.reduce((acc, item) => acc + item.currentValue, 0);
       const netAssets = cash + marketValue;
       const mom = netAssets - netAssetsAt(addMonths(month, -1));
+      const uSell = unrealizedByPurpose(["sell", "rotating"]);
+      const uHold = unrealizedByPurpose(["hold", "investment"]);
+      const uOpenedSingle = unrealizedByPurpose(["opened_single"]);
 
       setMoney("mCashFlow", flow.net);
       el("mMonthlyGoal").textContent = pct((flow.net / 50000) * 100);
@@ -937,6 +965,9 @@
       el("mTotalCost").textContent = yen(totalCost);
       el("mMarketValue").textContent = yen(marketValue);
       setMoney("mUnrealized", marketValue - totalCost);
+      setMoney("uSell", uSell);
+      setMoney("uHold", uHold);
+      setMoney("uOpenedSingle", uOpenedSingle);
       el("assetRotating").textContent = yen(invByPurpose("sell") + invByPurpose("rotating"));
       el("assetInvestment").textContent = yen(invByPurpose("hold") + invByPurpose("investment"));
       el("assetOpenedSingle").textContent = yen(invByPurpose("opened_single"));
@@ -1062,6 +1093,7 @@
           };
           el("pageTitle").textContent = titles[button.dataset.section][0];
           el("pageSubtitle").textContent = titles[button.dataset.section][1];
+          el("dashboardControls").hidden = button.dataset.section !== "dashboard";
         });
       });
 
