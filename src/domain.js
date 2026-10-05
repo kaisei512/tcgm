@@ -17,6 +17,16 @@
     return ["box", "pack", "single", "other"].includes(kind) ? kind : "other";
   }
 
+  function formatYearMonth(year, month) {
+    return `${year}-${String(month).padStart(2, "0")}`;
+  }
+
+  function addMonths(month, delta) {
+    const [year, monthNumber] = String(month).split("-").map(Number);
+    const date = new Date(year, monthNumber - 1 + delta, 1);
+    return formatYearMonth(date.getFullYear(), date.getMonth() + 1);
+  }
+
   function openInventoryItem({ item, openQuantity, singles = [], openedAt, noHit = false, idFactory }) {
     if (!item) throw new Error("item is required");
     if (typeof idFactory !== "function") throw new Error("idFactory is required");
@@ -188,7 +198,7 @@
     return { changed: true, state: { ...state, transactions, inventory }, transaction: tx };
   }
 
-  const api = { asPositiveInteger, asMoney, normalizedKind, openInventoryItem, cancelLatestTransaction };
+  const api = { addMonths, asPositiveInteger, asMoney, normalizedKind, openInventoryItem, cancelLatestTransaction };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;

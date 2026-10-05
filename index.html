@@ -798,7 +798,7 @@
     const thisMonth = () => today().slice(0, 7);
     const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const num = (id) => Number(el(id).value) || 0;
-    const { cancelLatestTransaction, openInventoryItem } = window.TCGMDomain;
+    const { addMonths, cancelLatestTransaction, openInventoryItem } = window.TCGMDomain;
 
     function loadState() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -831,12 +831,6 @@
 
     function inMonth(dateStr, month) {
       return dateStr && dateStr.slice(0, 7) === month;
-    }
-
-    function addMonths(month, delta) {
-      const [y, m] = month.split("-").map(Number);
-      const d = new Date(y, m - 1 + delta, 1);
-      return d.toISOString().slice(0, 7);
     }
 
     function cashDelta(tx) {

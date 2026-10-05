@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { cancelLatestTransaction, openInventoryItem } = require("../src/domain.js");
+const { addMonths, cancelLatestTransaction, openInventoryItem } = require("../src/domain.js");
 
 function idFactory() {
   let next = 1;
@@ -23,6 +23,13 @@ function pack(overrides = {}) {
     ...overrides
   };
 }
+
+test("月加算はUTC変換で前月にずれない", () => {
+  assert.equal(addMonths("2026-10", -2), "2026-08");
+  assert.equal(addMonths("2026-10", -1), "2026-09");
+  assert.equal(addMonths("2026-10", 0), "2026-10");
+  assert.equal(addMonths("2026-01", -1), "2025-12");
+});
 
 test("一部開封では開封分と未開封残に分け、未開封残を売却予定にする", () => {
   const result = openInventoryItem({
