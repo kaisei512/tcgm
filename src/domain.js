@@ -198,7 +198,80 @@
     return { changed: true, state: { ...state, transactions, inventory }, transaction: tx };
   }
 
-  const api = { addMonths, asPositiveInteger, asMoney, normalizedKind, openInventoryItem, cancelLatestTransaction };
+  function cashDelta(tx) {
+    const money = (value) => Number(value) || 0;
+    if (tx.type === "purchase" || tx.type === "expense") return -money(tx.amount);
+    if (tx.type === "sale") return money(tx.gross) - money(tx.fee) - money(tx.shipping) - money(tx.transport);
+    return 0;
+  }
+
+  function cashFlowForMonth(state, month) {
+    const result = { income: 0, purchase: 0, costs: 0, net: 0 };
+    const money = (value) => Number(value) || 0;
+    for (const tx of state.transactions.filter((tx) => tx.date?.slice(0, 7) === month)) {
+      result.net += cashDelta(tx);
+      if (tx.type === "purchase") result.purchase += money(tx.amount);
+      if (tx.type === "expense") result.costs += money(tx.amount);
+      if (tx.type === "sale") {
+        result.income += money(tx.gross);
+        result.costs += money(tx.fee) + money(tx.shipping) + money(tx.transport);
+      }
+    }
+    return result;
+  }
+
+  function monthlyAssetChange(state, month) {
+    const current = assetsAtMonth(state, month);
+    const previous = assetsAtMonth(state, addMonths(month, -1));
+    return {
+      current, previous,
+      cashChange: current.cash - previous.cash,
+      inventoryChange: current.marketValue - previous.marketValue,
+      netChange: current.netAssets - previous.netAssets
+    };
+  }
+
+  function assetsAtMonth(state, month) {
+    const cutoff = `${addMonths(month, 1)}-01`;
+    let snapshot = { ...state, inventory: clone(state.inventory), transactions: [] };
+    // Reverse later operations to restore unsplit packs and pre-sale values.
+    const later = state.transactions
+      .map((tx, index) => ({ tx, index }))
+      .filter(({ tx }) => tx.date >= cutoff)
+      .sort((a, b) => b.tx.date.localeCompare(a.tx.date) || b.index - a.index);
+    for (const { tx } of later) {
+      snapshot = cancelLatestTransaction({ ...snapshot, transactions: [tx] }).state;
+    }
+    const inventory = snapshot.inventory.filter((item) => {
+      const disposedAt = item.soldAt || item.openedAt;
+      return item.acquiredAt < cutoff && (!disposedAt || disposedAt >= cutoff);
+    });
+    const money = (value) => Number(value) || 0;
+    const cash = money(state.settings.initialCash) + state.transactions
+      .filter((tx) => tx.date < cutoff)
+      .reduce((total, tx) => total + cashDelta(tx), 0);
+    const totalCost = inventory.reduce((total, item) => total + money(item.acquisitionCost), 0);
+    const marketValue = inventory.reduce((total, item) => total + money(item.currentValue), 0);
+    return { inventory, cash, totalCost, marketValue, netAssets: cash + marketValue };
+  }
+
+  function summarizeInventory(inventory) {
+    const groups = Object.fromEntries(["sell", "hold", "open", "opened_single", "other"]
+      .map((key) => [key, { cost: 0, value: 0, unrealized: 0 }]));
+    const aliases = { rotating: "sell", investment: "hold" };
+    for (const item of inventory) {
+      const purpose = aliases[item.purpose] || item.purpose;
+      const group = Object.hasOwn(groups, purpose) ? groups[purpose] : groups.other;
+      const cost = Number(item.acquisitionCost) || 0;
+      const value = Number(item.currentValue) || 0;
+      group.cost += cost;
+      group.value += value;
+      group.unrealized += value - cost;
+    }
+    return groups;
+  }
+
+  const api = { addMonths, assetsAtMonth, monthlyAssetChange, cashDelta, cashFlowForMonth, summarizeInventory, asPositiveInteger, asMoney, normalizedKind, openInventoryItem, cancelLatestTransaction };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;

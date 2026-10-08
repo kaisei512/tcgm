@@ -266,6 +266,43 @@
     }
 
     .positive { color: var(--green); }
+    .help-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      margin-left: 4px;
+      padding: 0;
+      border: 1px solid var(--muted);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .help-button:hover, .help-button[aria-expanded="true"] {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: white;
+    }
+    .help-button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .help-popup {
+      position: fixed;
+      z-index: 20;
+      width: 300px;
+      max-width: calc(100vw - 24px);
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fffdf8;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      max-height: calc(100dvh - 24px);
+      overflow: auto;
+    }
     .negative { color: var(--red); }
     .neutral { color: var(--blue); }
 
@@ -434,7 +471,7 @@
 
     .asset-strip {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -565,9 +602,16 @@
             </div>
             <div class="metrics">
               <div class="metric"><span>総純資産</span><strong id="mNetAssets">¥0</strong></div>
-              <div class="metric"><span>前月比</span><strong id="mMoM">¥0</strong></div>
+              <div class="metric">
+                <span>純資産の前月末比（推計）</span>
+                <strong id="mMoM">¥0</strong>
+                <div class="metric-detail">
+                  <div><span>現金増減</span><b id="momCash">¥0</b></div>
+                  <div><span>在庫評価額増減</span><b id="momInventory">¥0</b></div>
+                </div>
+              </div>
               <div class="metric"><span>現金</span><strong id="mCash">¥0</strong></div>
-              <div class="metric"><span>取得原価合計</span><strong id="mTotalCost">¥0</strong></div>
+              <div class="metric"><span title="選択月末に保有する在庫の原価。売却済み・開封済みの原価は含みません。開封シングルの原価は0円です。">保有在庫の原価</span><strong id="mTotalCost">¥0</strong></div>
               <div class="metric"><span>現在評価額合計</span><strong id="mMarketValue">¥0</strong></div>
               <div class="metric">
                 <span>含み損益</span>
@@ -575,7 +619,9 @@
                 <div class="metric-detail">
                   <div><span>売却予定</span><b id="uSell">¥0</b></div>
                   <div><span>保持予定</span><b id="uHold">¥0</b></div>
+                  <div><span>開封予定</span><b id="uOpen">¥0</b></div>
                   <div><span>開封シングル</span><b id="uOpenedSingle">¥0</b></div>
+                  <div><span>未分類</span><b id="uOther">¥0</b></div>
                 </div>
               </div>
             </div>
@@ -584,12 +630,14 @@
 
         <div class="panel">
           <div class="panel-head">
-            <h2>在庫区分</h2>
+            <h2>在庫区分（評価額）</h2>
           </div>
           <div class="asset-strip">
             <div class="mini-card"><span>売却予定</span><strong id="assetRotating">¥0</strong></div>
             <div class="mini-card"><span>保持予定</span><strong id="assetInvestment">¥0</strong></div>
+            <div class="mini-card"><span>開封予定</span><strong id="assetOpen">¥0</strong></div>
             <div class="mini-card"><span>開封シングル</span><strong id="assetOpenedSingle">¥0</strong></div>
+            <div class="mini-card"><span>未分類</span><strong id="assetOther">¥0</strong></div>
             <div class="mini-card"><span>在庫点数</span><strong id="assetCount">0</strong></div>
           </div>
         </div>
@@ -735,7 +783,7 @@
       </section>
 
       <section class="section" id="openbox">
-        <div class="grid two-col">
+        <div class="grid">
           <article class="panel">
             <div class="panel-head">
               <h2>パック開封</h2>
@@ -820,7 +868,7 @@
     const thisMonth = () => today().slice(0, 7);
     const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const num = (id) => Number(el(id).value) || 0;
-    const { addMonths, cancelLatestTransaction, openInventoryItem } = window.TCGMDomain;
+    const { addMonths, assetsAtMonth, monthlyAssetChange, cashDelta, cashFlowForMonth: calculateCashFlow, summarizeInventory, cancelLatestTransaction, openInventoryItem } = window.TCGMDomain;
 
     function loadState() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -855,38 +903,8 @@
       return dateStr && dateStr.slice(0, 7) === month;
     }
 
-    function cashDelta(tx) {
-      if (tx.type === "purchase") return -tx.amount;
-      if (tx.type === "sale") return tx.gross - tx.fee - tx.shipping - tx.transport;
-      if (tx.type === "expense") return -tx.amount;
-      return 0;
-    }
-
     function cashFlowForMonth(month) {
-      const txs = state.transactions.filter((tx) => inMonth(tx.date, month));
-      const income = sum(txs.filter((tx) => tx.type === "sale"), "gross");
-      const purchase = sum(txs.filter((tx) => tx.type === "purchase"), "amount");
-      const saleCosts = txs
-        .filter((tx) => tx.type === "sale")
-        .reduce((acc, tx) => acc + tx.fee + tx.shipping + tx.transport, 0);
-      const expenses = sum(txs.filter((tx) => tx.type === "expense"), "amount");
-      return { income, purchase, costs: saleCosts + expenses, net: income - purchase - saleCosts - expenses };
-    }
-
-    function netAssetsAt(month) {
-      const { end } = monthRange(month);
-      const cash = state.settings.initialCash + state.transactions
-        .filter((tx) => new Date(tx.date) < end)
-        .reduce((acc, tx) => acc + cashDelta(tx), 0);
-      const invValue = state.inventory
-        .filter((item) => {
-          const acquired = new Date(item.acquiredAt) < end;
-          const disposedAt = item.soldAt || item.openedAt || null;
-          const heldAtEnd = !disposedAt || new Date(disposedAt) >= end;
-          return acquired && heldAtEnd;
-        })
-        .reduce((acc, item) => acc + item.currentValue, 0);
-      return cash + invValue;
+      return calculateCashFlow(state, month);
     }
 
     function sum(rows, key) {
@@ -936,19 +954,12 @@
       const flow = cashFlowForMonth(month);
       const qMonths = [addMonths(month, -2), addMonths(month, -1), month];
       const quarter = qMonths.reduce((acc, m) => acc + cashFlowForMonth(m).net, 0);
-      const active = activeInventory();
-      const cash = state.settings.initialCash + state.transactions.reduce((acc, tx) => acc + cashDelta(tx), 0);
-      const invByPurpose = (purpose) => active.filter((item) => item.purpose === purpose).reduce((acc, item) => acc + item.currentValue, 0);
-      const unrealizedByPurpose = (purposes) => active
-        .filter((item) => purposes.includes(item.purpose))
-        .reduce((acc, item) => acc + item.currentValue - item.acquisitionCost, 0);
-      const totalCost = active.reduce((acc, item) => acc + item.acquisitionCost, 0);
-      const marketValue = active.reduce((acc, item) => acc + item.currentValue, 0);
-      const netAssets = cash + marketValue;
-      const mom = netAssets - netAssetsAt(addMonths(month, -1));
-      const uSell = unrealizedByPurpose(["sell", "rotating"]);
-      const uHold = unrealizedByPurpose(["hold", "investment"]);
-      const uOpenedSingle = unrealizedByPurpose(["opened_single"]);
+      const change = monthlyAssetChange(state, month);
+      const snapshot = change.current;
+      const active = snapshot.inventory;
+      const cash = snapshot.cash;
+      const groups = summarizeInventory(active);
+      const { totalCost, marketValue, netAssets } = snapshot;
 
       setMoney("mCashFlow", flow.net);
       el("mMonthlyGoal").textContent = pct((flow.net / 50000) * 100);
@@ -960,17 +971,23 @@
       el("mCosts").textContent = yen(flow.costs);
 
       el("mNetAssets").textContent = yen(netAssets);
-      setMoney("mMoM", mom);
+      setMoney("mMoM", change.netChange);
+      setMoney("momCash", change.cashChange);
+      setMoney("momInventory", change.inventoryChange);
       el("mCash").textContent = yen(cash);
       el("mTotalCost").textContent = yen(totalCost);
       el("mMarketValue").textContent = yen(marketValue);
       setMoney("mUnrealized", marketValue - totalCost);
-      setMoney("uSell", uSell);
-      setMoney("uHold", uHold);
-      setMoney("uOpenedSingle", uOpenedSingle);
-      el("assetRotating").textContent = yen(invByPurpose("sell") + invByPurpose("rotating"));
-      el("assetInvestment").textContent = yen(invByPurpose("hold") + invByPurpose("investment"));
-      el("assetOpenedSingle").textContent = yen(invByPurpose("opened_single"));
+      for (const [purpose, unrealizedId, assetId] of [
+        ["sell", "uSell", "assetRotating"],
+        ["hold", "uHold", "assetInvestment"],
+        ["open", "uOpen", "assetOpen"],
+        ["opened_single", "uOpenedSingle", "assetOpenedSingle"],
+        ["other", "uOther", "assetOther"]
+      ]) {
+        setMoney(unrealizedId, groups[purpose].unrealized);
+        el(assetId).textContent = yen(groups[purpose].value);
+      }
       el("assetCount").textContent = active.length;
     }
 
@@ -1352,6 +1369,96 @@
       event.target.value = "";
     }
 
+    function setupMetricHelp() {
+      const descriptions = {
+        mCashFlow: "選択月の現金増減です。売却入金 − 仕入 − 売却控除で計算します。開封だけでは現金は変わりません。",
+        mMonthlyGoal: "選択月の現金増加を、目標の50,000円で割った達成率です。",
+        mQuarterFlow: "選択月とその前の2か月、計3か月の現金増減の合計です。",
+        mIncome: "選択月に登録した売却入金の合計です。手数料などを差し引く前の金額です。",
+        mPurchase: "選択月に取得した在庫の仕入支出です。保有在庫の原価とは対象が異なります。",
+        mCosts: "選択月の販売手数料・送料・交通費の合計です。過去に登録した経費も含みます。",
+        mNetAssets: "選択月末の現金 ＋ 保有在庫の評価額です。仕入は現金から在庫への移動なので、仕入額だけでは純資産は減りません。",
+        mMoM: "選択月末の総純資産 − 前月末の総純資産です。現金増減 ＋ 在庫評価額増減で、現金だけを見る「今月」とは異なります。評価額の変更履歴がない在庫は最新の評価額を使うため、推計になります。",
+        momCash: "選択月の現金増減です。Cash Flowの「今月」と同じ金額です。",
+        momInventory: "選択月末の在庫評価額 − 前月末の在庫評価額です。仕入で増え、売却・開封で減ることがあります。開封後のシングルと未開封残は評価額に含みます。",
+        mCash: "選択月末までの初期現金 ＋ 売却入金 − 仕入 − 手数料・送料・交通費・経費です。",
+        mTotalCost: "選択月末に保有する在庫の取得原価です。売却済み・開封済みは除外します。一部開封なら未開封残の原価だけが含まれ、開封シングルの原価は0円です。",
+        mMarketValue: "選択月末に保有する在庫の評価額合計です。実際の売却入金とは異なります。過去月の評価額は保存された情報からの推計です。",
+        mUnrealized: "保有在庫の評価額 − 保有在庫の原価です。まだ売却していない在庫の損益で、現金の増減や開封済みパックの損失とは別です。",
+        assetCount: "選択月末に保有する在庫のレコード数です。パック数やカード枚数の合計ではありません。"
+      };
+      const purposes = {
+        Sell: "売却予定の在庫です。旧データの売却区分も含みます。",
+        Hold: "保持予定の在庫です。旧データの保持区分も含みます。",
+        Open: "今後開封する予定で、まだ開封していない在庫です。",
+        OpenedSingle: "開封で取得したシングルです。原価は開封元に残すため0円で、含み損益は評価額と同額になります。",
+        Other: "目的区分が未設定、または現在の区分に対応しない在庫です。商品カテゴリの「その他」とは別です。"
+      };
+      const assetIds = { Sell: "assetRotating", Hold: "assetInvestment", Open: "assetOpen", OpenedSingle: "assetOpenedSingle", Other: "assetOther" };
+      for (const [key, description] of Object.entries(purposes)) {
+        descriptions[`u${key}`] = `${description} この金額は評価額 − 原価です。`;
+        descriptions[assetIds[key]] = `${description} この金額は評価額の合計です。`;
+      }
+      const popup = document.createElement("div");
+      popup.id = "metricHelpPopup";
+      popup.className = "help-popup";
+      popup.setAttribute("role", "tooltip");
+      popup.hidden = true;
+      document.body.append(popup);
+      let current = null;
+      let pinned = false;
+      function close() {
+        if (current) {
+          current.setAttribute("aria-expanded", "false");
+          current.removeAttribute("aria-describedby");
+        }
+        current = null;
+        pinned = false;
+        popup.hidden = true;
+      }
+      function show(button, description) {
+        if (current !== button) close();
+        current = button;
+        button.setAttribute("aria-expanded", "true");
+        button.setAttribute("aria-describedby", popup.id);
+        popup.textContent = description;
+        popup.hidden = false;
+        const anchor = button.getBoundingClientRect();
+        const bounds = popup.getBoundingClientRect();
+        popup.style.left = `${Math.max(12, Math.min(anchor.left, window.innerWidth - bounds.width - 12))}px`;
+        const below = anchor.bottom + 8;
+        popup.style.top = `${Math.max(12, Math.min(below + bounds.height <= window.innerHeight - 12 ? below : anchor.top - bounds.height - 8, window.innerHeight - bounds.height - 12))}px`;
+      }
+      for (const [id, description] of Object.entries(descriptions)) {
+        const label = el(id).previousElementSibling;
+        label.removeAttribute("title");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "help-button";
+        button.textContent = "?";
+        button.setAttribute("aria-label", `${label.textContent}の説明`);
+        button.setAttribute("aria-expanded", "false");
+        button.addEventListener("mouseenter", () => { if (!pinned) show(button, description); });
+        button.addEventListener("mouseleave", () => { if (!pinned && document.activeElement !== button) close(); });
+        button.addEventListener("focus", () => show(button, description));
+        button.addEventListener("blur", () => { if (!pinned) close(); });
+        button.addEventListener("click", () => {
+          if (current === button && pinned) close();
+          else { show(button, description); pinned = true; }
+        });
+        label.append(button);
+      }
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".help-button") && !popup.contains(event.target)) close();
+      });
+      document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+      window.addEventListener("resize", close);
+      document.addEventListener("scroll", (event) => {
+        if (current && event.target !== popup) show(current, popup.textContent);
+      }, true);
+    }
+
+    setupMetricHelp();
     setDefaults();
     updatePurposeOptions();
     bindEvents();
